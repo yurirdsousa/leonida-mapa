@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-publico="1">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Leonida — Mapa Interativo (GTA VI)</title>
+<link rel="stylesheet" href="leaflet.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+
+:root{--bg:#0d1114;--panel:#151b20;--panel2:#1b232a;--line:#26313a;--txt:#e6edf2;--mut:#8a99a6;--acc:#ff4f8b;--acc2:#ffb347;--ocean:#2f90b0}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,sans-serif;font-size:14px;overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+#app{display:flex;height:100%}
+#side{width:320px;flex:none;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;z-index:1001}
+#side header{padding:18px 18px 12px;border-bottom:1px solid var(--line)}
+.logo{font-weight:800;font-size:22px;letter-spacing:.08em;background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.logo span{display:block;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--mut);-webkit-text-fill-color:var(--mut);font-weight:600;margin-top:2px}
+.scroll{overflow-y:auto;flex:1;padding:14px 14px 18px}
+.search{position:relative;margin-bottom:14px}
+.search input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--txt);font:inherit;outline:none}
+.search input:focus{border-color:var(--acc)}
+#results{position:absolute;left:0;right:0;top:44px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;overflow:hidden;z-index:10;box-shadow:0 10px 30px #0008;max-height:60vh;overflow-y:auto}
+#results:empty{display:none}
+#results button{display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:none;border:0;padding:9px 12px;border-bottom:1px solid var(--line)}
+#results button:hover{background:#ffffff0d}
+#results i{width:10px;height:10px;border-radius:50%;flex:none;background:var(--c)}
+#results small{color:var(--mut);display:block;font-size:11px}
+.prog{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:14px}
+.prog .row{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);margin-bottom:8px}
+.prog b{color:var(--txt);font-size:13px}
+.bar{height:6px;background:#ffffff12;border-radius:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2));border-radius:6px;transition:width .3s}
+.head{display:flex;align-items:center;gap:6px;margin:4px 2px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--mut);font-weight:700}
+.head span{flex:1}
+.head button{background:none;border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-size:11px;color:var(--mut);text-transform:none;letter-spacing:0}
+.head button:hover{color:var(--txt)}
+#cats{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-direction:column;gap:2px}
+#cats li{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:9px;cursor:pointer;user-select:none;border:1px solid transparent}
+#cats li:hover{background:#ffffff08;border-color:var(--line)}
+#cats li.off{opacity:.35}
+#cats .dot{width:12px;height:12px;border-radius:50%;background:var(--c);box-shadow:0 0 0 2px #0006;flex:none}
+#cats .nm{flex:1;font-weight:500;font-size:13px}
+#cats .ct{font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut);padding:5px 2px;cursor:pointer}
+.chk input{accent-color:var(--acc)}
+.tools{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.btn{display:block;text-align:center;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-weight:600;font-size:13px;cursor:pointer}
+.btn:hover{border-color:#3a4a56}
+.btn.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.note{font-size:11px;color:var(--mut);line-height:1.55;margin:14px 2px 0}
+.note a{color:#9fc6dd}
+
+#map{flex:1;position:relative;background:var(--ocean)}
+#lmap{position:absolute;inset:0;background:var(--ocean)}
+#lmap.adding{cursor:crosshair}
+.leaflet-container{font-family:Inter,system-ui,sans-serif}
+.leaflet-control-attribution{background:#151b20cc!important;color:var(--mut)!important;font-size:10px}
+.leaflet-control-attribution a{color:#9fc6dd!important}
+.leaflet-bar a{background:var(--panel)!important;color:var(--txt)!important;border-color:var(--line)!important}
+.lbl{background:none;border:0;box-shadow:none;color:#fff;font-weight:800;text-transform:uppercase;letter-spacing:.18em;text-shadow:0 1px 3px #000,0 0 8px #000a;font-size:13px;padding:0}
+.lbl.sub{font-size:10.5px;letter-spacing:.12em;font-weight:700;color:#f1f5f9}
+.lbl::before{display:none}
+.pin{width:26px;height:26px;border-radius:50% 50% 50% 4px;transform:rotate(-45deg);background:var(--c);box-shadow:0 3px 10px #000a,inset 0 0 0 2px #ffffff50;display:grid;place-items:center}
+.pin span{transform:rotate(45deg);font-size:12px}
+.pin.found{filter:grayscale(.7) brightness(.75)}
+#coords{position:absolute;left:12px;bottom:12px;z-index:800;background:#151b20d0;border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums;pointer-events:none}
+#hint{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:var(--acc);color:#fff;font-weight:600;padding:8px 14px;border-radius:999px;font-size:13px;box-shadow:0 6px 20px #0008;z-index:900}
+#hint:empty{display:none}
+#menuBtn{display:none;position:absolute;left:58px;top:10px;z-index:900;width:40px;height:40px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-size:18px}
+
+#panel{position:absolute;right:14px;top:14px;width:330px;max-width:calc(100% - 28px);background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 40px #000a;z-index:900;overflow:hidden;max-height:calc(100% - 60px);overflow-y:auto}
+#panel[hidden]{display:none}
+#panel .top{height:6px;background:var(--c,var(--acc))}
+#panel .in{padding:16px}
+#panel .x{position:absolute;right:10px;top:14px;background:none;border:0;font-size:20px;color:var(--mut);width:28px;height:28px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:4px 8px;border-radius:999px;background:color-mix(in srgb,var(--c) 22%,transparent);color:var(--c)}
+.flag{display:inline-block;font-size:11px;font-weight:600;padding:3px 7px;border-radius:6px;background:#ffffff10;color:#cbd5e1;margin:0 4px 4px 0}
+.flag.warn{background:#f59e0b22;color:#fbbf24}
+#panel h2{margin:10px 28px 4px 0;font-size:19px;line-height:1.25}
+#panel .meta{font-size:12px;color:var(--mut);margin-bottom:10px}
+#panel .real{font-size:12.5px;color:#c4d0d9;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0 14px;line-height:1.45}
+#panel .real b{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);margin-bottom:3px}
+#panel p{margin:0 0 14px;color:#c4d0d9;line-height:1.5}
+#panel .acts{display:flex;gap:8px;flex-wrap:wrap}
+#panel .acts .btn{flex:1}
+#panel .btn.ok{background:#16a34a;border-color:#16a34a;color:#fff}
+#panel .btn.del{flex:none;color:#f87171}
+#panel label{display:block;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin:10px 0 4px}
+#panel input,#panel select,#panel textarea,#modal textarea{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--txt);font:inherit;outline:none}
+.toast{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);background:#22c55e;color:#fff;padding:8px 14px;border-radius:999px;font-weight:600;font-size:13px;z-index:950;box-shadow:0 6px 20px #0008}
+#modal{position:fixed;inset:0;background:#000a;display:grid;place-items:center;z-index:2000;padding:16px}
+#modal[hidden]{display:none}
+#modal .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;width:min(600px,100%)}
+#modal h3{margin:0 0 6px}
+#modal p{margin:0 0 10px;color:var(--mut);font-size:13px;line-height:1.5}
+#modal code{background:#ffffff10;padding:1px 5px;border-radius:4px;color:#e2e8f0}
+#modal textarea{height:220px;font-family:ui-monospace,monospace;font-size:12px}
+#modal .acts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+#modal .acts .btn{flex:1}
+#loading{position:absolute;inset:0;display:grid;place-items:center;z-index:950;color:#fff;font-weight:600;pointer-events:none;text-shadow:0 1px 4px #000}
+/* abas */
+#tabs{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:950;display:flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px;box-shadow:0 6px 20px #0007}
+#tabs button{background:none;border:0;padding:7px 18px;border-radius:999px;font-weight:700;font-size:13px;color:var(--mut)}
+#tabs button.on{background:linear-gradient(90deg,var(--acc),var(--acc2));color:#fff}
+#hint{top:62px}
+/* lojas no mapa */
+.shop{width:30px;height:30px;border-radius:9px;background:var(--c);border:2px solid #0b1015;box-shadow:0 3px 10px #0009;display:grid;place-items:center}
+.shop svg{width:18px;height:18px;fill:#0b1015}
+.shop.aprox{border-style:dashed;border-color:#fff}
+.shop.dim{opacity:.25}
+.shop.hl{transform:scale(1.25);box-shadow:0 0 0 3px #fff,0 4px 14px #000a}
+#brandBar{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:900;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 6px 6px 16px;display:flex;align-items:center;gap:10px;font-weight:600;box-shadow:0 6px 20px #0008;white-space:nowrap}
+#brandBar[hidden]{display:none}
+#brandBar button{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12px}
+.thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:6px 0 12px}
+.thumbs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:pointer}
+.sub-h{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:700;margin:12px 0 4px}
+.muted{color:var(--mut);font-size:12.5px;line-height:1.5}
+/* catálogo */
+#catalog{position:absolute;inset:0;z-index:940;background:var(--bg);overflow-y:auto;padding:70px 22px 30px}
+#catalog[hidden]{display:none}
+.cat-top{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.cat-top input,.cat-top select{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--txt);font:inherit;outline:none}
+.cat-top input{flex:1;min-width:200px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.chips button{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:600;color:var(--mut)}
+.chips button.on{background:var(--txt);color:var(--bg);border-color:var(--txt)}
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;transition:transform .12s,border-color .12s;position:relative}
+.card:hover{transform:translateY(-2px);border-color:#3a4a56}
+.card img{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:var(--panel2)}
+.ph{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:repeating-linear-gradient(45deg,#1b232a,#1b232a 10px,#182027 10px,#182027 20px);color:var(--mut);font-size:12px;text-align:center;padding:10px}
+.ph b{color:#cbd5e1;font-size:13px}
+.card:hover .ph span{color:var(--acc)}
+.card .b{padding:10px 12px}
+.card .n{font-weight:700;font-size:14px;line-height:1.3}
+.card .m{font-size:12px;color:var(--mut);margin-top:3px}
+.badge{position:absolute;left:8px;top:8px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;background:#000b;color:#fff}
+.badge.tenho{background:#16a34a}
+.badge.quero{background:var(--acc)}
+.empty{max-width:520px;margin:50px auto;text-align:center;color:var(--mut);line-height:1.6}
+.empty h3{color:var(--txt);margin-bottom:6px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-grid label,.fld label{display:block;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin:0 0 4px}
+.fld{margin-top:10px}
+#modal input,#modal select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--txt);font:inherit;outline:none}
+.drop{border:2px dashed var(--line);border-radius:12px;display:grid;place-items:center;aspect-ratio:16/10;cursor:pointer;color:var(--mut);text-align:center;overflow:hidden;background:var(--panel2)}
+.drop img{width:100%;height:100%;object-fit:contain}
+.det{display:grid;grid-template-columns:1.1fr 1fr;gap:18px}
+.det img{width:100%;border-radius:12px;border:1px solid var(--line);background:var(--panel2)}
+.det h3{font-size:20px;margin:0 0 4px}
+.seg{display:flex;gap:6px;margin:10px 0}
+.seg button{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px;font-size:12.5px;font-weight:600}
+.seg button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.store-list{display:flex;flex-direction:column;gap:4px;margin-top:6px;max-height:180px;overflow-y:auto}
+.store-list button{display:flex;justify-content:space-between;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12.5px;text-align:left}
+.store-list small{color:var(--mut)}
+@media (max-width:760px){
+  #catalog{padding:64px 12px 24px}
+  #grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  .det{grid-template-columns:1fr}
+  .form-grid{grid-template-columns:1fr}
+  #tabs{top:10px}
+}
+@media (max-width:760px){
+  #side{position:absolute;left:0;top:0;bottom:0;transform:translateX(-100%);transition:transform .25s;box-shadow:10px 0 30px #0009}
+  #side.open{transform:none}
+  #menuBtn{display:block}
+  #panel{top:auto;bottom:30px;right:10px;left:10px;width:auto;max-height:55%}
+  #coords{display:none}
+}
+/* v2 */
+.grp{margin:0 0 10px}
+.grp-h{display:flex;align-items:center;gap:6px;font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--mut);font-weight:700;margin:10px 2px 4px;cursor:pointer;user-select:none}
+.grp-h span{flex:1}
+.grp-h b{font-weight:600;letter-spacing:0;text-transform:none;font-size:11px}
+.grp-h .car{transition:transform .15s;flex:none;width:12px}
+.grp-h span:nth-child(2){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.grp.closed .car{transform:rotate(-90deg)}
+.grp.closed ul{display:none}
+.lay{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+.lay li{display:flex;align-items:center;gap:9px;padding:5px 8px;border-radius:8px;cursor:pointer;user-select:none}
+.lay li:hover{background:#ffffff08}
+.lay li.off{opacity:.35}
+.lay .ico{width:22px;height:22px;flex:none;display:grid;place-items:center;font-size:14px;border-radius:6px;background:color-mix(in srgb,var(--c) 25%,transparent)}
+.lay .ico img{width:18px;height:20px;object-fit:contain}
+.lay .nm{flex:1;font-size:12.5px;font-weight:500;min-width:0}
+.lay .nm .bar{height:2px;margin-top:3px}
+.lay .nm .bar i{background:var(--c)}
+.lay .ct{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pinimg{filter:drop-shadow(0 2px 3px #000a)}
+.pinimg.found{filter:grayscale(1) brightness(.6) drop-shadow(0 2px 3px #000a);opacity:.7}
+.pinimg.dim{opacity:.18}
+.pinimg.hl{filter:drop-shadow(0 0 4px #fff) drop-shadow(0 0 2px #fff)}
+.fb{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:14px;background:var(--c);border:2px solid #0b1015;box-shadow:0 2px 6px #0009}
+.fb.found{filter:grayscale(1) brightness(.6)}
+.fb.dim{opacity:.18}
+.miss{color:#fbbf24;font-size:12px;margin-top:4px}
+.src{font-size:11px;color:var(--mut);margin-top:10px}
+/* site publicado: ferramentas de administração não aparecem */
+html[data-publico="1"] .admin{display:none!important}
+/* v3: UX */
+.clu{border-radius:50%;display:grid;place-items:center;background:conic-gradient(#64748b var(--f),var(--c) 0);box-shadow:0 3px 10px #000a;border:2px solid #0b1015;cursor:pointer;transition:transform .12s}
+.clu span{display:grid;place-items:center;width:calc(100% - 8px);height:calc(100% - 8px);border-radius:50%;background:#0d1114e6;color:#fff;font-weight:800;font-size:12px;font-variant-numeric:tabular-nums}
+.clu:hover{transform:scale(1.12)}
+.clu.dim{opacity:.2}
+.fchips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.tg{cursor:pointer;user-select:none}
+.tg input{display:none}
+.tg span{display:inline-block;font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--mut)}
+.tg input:checked+span{background:color-mix(in srgb,var(--acc) 22%,transparent);border-color:var(--acc);color:#fff}
+details.more{margin-top:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}
+details.more summary{cursor:pointer;padding:10px 12px;font-size:12px;font-weight:700;color:var(--mut);list-style:none;display:flex;align-items:center;gap:8px}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary::before{content:'▸';transition:transform .15s}
+details.more[open] summary::before{transform:rotate(90deg)}
+details.more .tools{margin:0;padding:0 10px 10px}
+details.more .btn{background:var(--panel)}
+.prog .row button{background:none;border:0;color:var(--mut);font-size:11px;padding:0 0 0 8px}
+.prog .row button:hover{color:var(--txt)}
+#regs{margin-top:10px;display:flex;flex-direction:column;gap:7px}
+#regs[hidden]{display:none}
+#regs div{font-size:11.5px;color:#c4d0d9}
+#regs div em{float:right;font-style:normal;color:var(--mut);font-variant-numeric:tabular-nums}
+#regs .bar{height:3px;margin-top:3px}
+.lay li .solo{display:none;background:none;border:1px solid var(--line);border-radius:6px;padding:0 6px;font-size:10px;color:var(--mut)}
+.lay li:hover .solo{display:inline-block}
+.lay li:hover .ct{display:none}
+#results button.act{background:#ffffff14}
+#results .ri{width:22px;height:22px;flex:none;display:grid;place-items:center;border-radius:6px;font-size:13px;background:color-mix(in srgb,var(--c) 25%,transparent)}
+#results .ri img{width:17px;height:19px;object-fit:contain}
+#results .kbd{padding:6px 12px;font-size:10.5px;color:var(--mut);border-top:1px solid var(--line)}
+.nearby{display:flex;flex-direction:column;gap:6px;margin:4px 0 4px}
+.nearby button{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12.5px;text-align:left}
+.nearby button:hover{border-color:#3a4a56}
+.nearby button b{flex:1;font-weight:600}
+.nearby button small{color:var(--mut);font-variant-numeric:tabular-nums}
+.addstore{display:flex;gap:6px;margin-top:8px}
+.addstore input{flex:1}
+.addstore .btn{flex:none;padding:7px 10px}
+#panel .grab{display:none}
+@media (max-width:760px){
+  #tabs{top:auto;bottom:14px}
+  #brandBar{bottom:66px;max-width:calc(100% - 20px)}
+  #panel{bottom:66px;max-height:60%;border-radius:16px}
+  #panel .grab{display:block;width:100%;height:22px;background:none;border:0;position:relative}
+  #panel .grab::after{content:'';position:absolute;left:50%;top:8px;width:44px;height:5px;border-radius:5px;background:#ffffff33;transform:translateX(-50%)}
+  #panel.mini{max-height:118px;overflow:hidden}
+  #panel .x{top:26px}
+  #hint{top:62px}
+  .lay li .solo{display:inline-block}
+  .lay li .ct{display:inline}
+}
+
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="side">
+    <header><div class="logo">LEONIDA<span>mapa interativo · GTA VI</span></div></header>
+    <div class="scroll">
+      <div class="search"><input id="q" placeholder="Buscar local, loja, colecionável…" autocomplete="off"><div id="results"></div></div>
+      <div class="prog">
+        <div class="row"><span>Encontrados</span><span><b id="progTxt">0 / 0</b><button id="regBtn">por região ▾</button></span></div>
+        <div class="bar"><i id="progBar" style="width:0"></i></div>
+        <div id="regs" hidden></div>
+      </div>
+      <div class="fchips">
+        <label class="tg"><input type="checkbox" id="fFound"><span>Esconder encontrados</span></label>
+        <label class="tg"><input type="checkbox" id="fLabels" checked><span>Nomes de bairros</span></label>
+        <label class="tg"><input type="checkbox" id="fNamed" checked><span>Prédios: só com nome</span></label>
+      </div>
+      <div class="head"><span>Camadas</span><button id="allOn">todas</button><button id="allOff">nenhuma</button></div>
+      <div id="layers"></div>
+      <details class="more"><summary>Ferramentas e dados</summary>
+      <div class="tools">
+        <button class="btn" id="addBtn">+ Adicionar meu ponto</button>
+        <button class="btn" id="viewLink">Copiar link desta vista</button>
+        <button class="btn" id="csvBtn">Importar pontos (CSV)</button>
+        <button class="btn" id="ioBtn">Exportar / importar progresso</button>
+      </div></details>
+      <p class="note">Locais de jogo e ícones: <a href="https://github.com/fbritoferreira/gta6" target="_blank" rel="noopener">Open GTA 6 Map</a> (fbritoferreira e colaboradores, CC BY 4.0; glifos Lucide, ISC). Mapa base e prédios: <a href="https://map.gtadb.org" target="_blank" rel="noopener">GTA VI Map Tiles e Landmarks Data</a> (gtadb.org e colaboradores, CC BY 4.0). Dados traduzidos e recombinados. Projeto de fã, sem vínculo com a Rockstar Games. GTA VI © Rockstar Games / Take-Two.</p>
+    </div>
+  </aside>
+  <main id="map">
+    <div id="lmap"></div>
+    <div id="loading">Carregando locais…</div>
+    <button id="menuBtn" aria-label="Menu">☰</button>
+    <div id="tabs"><button id="tabMap" class="on">Mapa</button><button id="tabCat">Roupas</button><button id="tabBel">Beleza</button></div>
+    <div id="hint"></div>
+    <div id="coords">x — · y —</div>
+    <div id="brandBar" hidden></div>
+    <section id="panel" hidden></section>
+    <section id="catalog" hidden>
+      <div class="cat-top">
+        <input id="cq" placeholder="Buscar peça, cor, loja…" autocomplete="off">
+        <select id="cLoja"></select>
+        <select id="cTipo"></select>
+        <select id="cPers"><option value="">Jason e Lucia</option><option value="Jason">Jason</option><option value="Lucia">Lucia</option></select>
+        <select id="cStatus"><option value="">Todas</option><option value="semfoto">Sem foto</option><option value="foto">Com foto</option><option value="quero">Quero</option><option value="tenho">Tenho</option></select>
+      </div>
+      <div class="cat-top">
+        <button class="btn on admin" id="listBtn">Importar lista de peças</button>
+        <button class="btn admin" id="bulkBtn">Importar fotos em lote</button>
+        <button class="btn" id="addItem">+ Peça fora da lista</button>
+        <button class="btn admin" id="wipeBtn" style="color:#f87171">Apagar catálogo</button>
+        <button class="btn admin" id="pubBtn" title="Gera o .zip para publicar no GitHub Pages">Publicar (.zip)</button>
+      </div>
+      <div class="chips" id="cTypes"></div>
+      <p class="muted" id="cCount" style="margin:-6px 0 12px"></p>
+      <div id="grid"></div>
+      <p class="note" id="cNote" style="margin-top:24px"></p>
+    </section>
+  </main>
+</div>
+<div id="modal" hidden><div class="box" id="mbox"></div></div>
+
+<script src="leaflet.js"></script>
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const norm = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const keyOf = t => norm(t).replace(/[’`]/g, "'").replace(/\.[a-z0-9]{2,4}$/, '').replace(/\(\d+\)\s*$/, '').replace(/[^a-z0-9]+/g, ' ').trim();
+
+/* coordenadas do jogo (metros, y para cima, 0,0 no centro) <-> Leaflet (CRS.Simple, 1 unidade = 32 m) */
+const toLL = (x, y) => L.latLng(-(16384 - y) / 32, (x + 16384) / 32);
+const fromLL = ll => ({x: ll.lng * 32 - 16384, y: 16384 + ll.lat * 32});
+
+/* ---------- estado salvo ---------- */
+const KEY = 'leonida-v2';
+const S = {found:{}, custom:[], off:{gtadb:true}, named:true, hideFound:false, labels:true, open:{}};
+try {
+  const raw = localStorage.getItem(KEY) || localStorage.getItem('leonida-gtadb-v1');
+  if (raw){ const o = JSON.parse(raw); Object.assign(S, o); S.off = Object.assign({gtadb:true}, o.off && raw === localStorage.getItem(KEY) ? o.off : {}); }
+} catch(e){}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} };
+$('#fFound').checked = S.hideFound; $('#fLabels').checked = S.labels; $('#fNamed').checked = S.named;
+
+/* ---------- mapa ---------- */
+const OCEAN = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="#2f90b0"/></svg>');
+const map = L.map('lmap', {crs:L.CRS.Simple, minZoom:1, maxZoom:8, zoomSnap:.25, zoomDelta:.5, wheelPxPerZoomLevel:90, attributionControl:true});
+L.tileLayer('t/{z}/{y}_{x}.webp', {tileSize:2048, minZoom:0, maxZoom:8, maxNativeZoom:6, noWrap:true, errorTileUrl:OCEAN, keepBuffer:1,
+  attribution:'<a href="https://github.com/fbritoferreira/gta6" target="_blank" rel="noopener">Open GTA 6 Map</a> · <a href="https://map.gtadb.org" target="_blank" rel="noopener">gtadb.org</a> (CC BY 4.0) · GTA VI © Rockstar Games'}).addTo(map);
+map.setMaxBounds(L.latLngBounds(toLL(-13000, -11000), toLL(6500, 12500)).pad(.15));
+map.fitBounds(L.latLngBounds(toLL(-10500, -10000), toLL(4000, 9800)));
+map.attributionControl.setPrefix(false);
+const canvas = L.canvas({padding:.3, tolerance:6});
+const dotLayer = L.layerGroup().addTo(map), pinLayer = L.layerGroup().addTo(map), bldLayer = L.layerGroup().addTo(map), labelsLayer = L.layerGroup().addTo(map), mineLayer = L.layerGroup().addTo(map);
+map.on('mousemove', e => { const p = fromLL(e.latlng); $('#coords').textContent = `x ${Math.round(p.x)} · y ${Math.round(p.y)} · zoom ${map.getZoom().toFixed(1)}`; });
+
+/* ---------- dados ---------- */
+let KINDS = [], KIND = {}, GRUPOS = [], LOC = [], BYID = {}, LOJAS = [], TIPOS = {}, BLD = [], BASEW = [], BASEB = [];
+let sel = null, focusIds = null;
+const TIPO_COR = {beleza:'#e879f9', casual:'#fb923c', esportiva:'#38bdf8', social:'#c084fc', souvenir:'#facc15', brecho:'#a3e635', calcados:'#f472b6'};
+Promise.all([...['locais.json', 'lojas.json', 'landmarks.json', 'pecas.json'].map(u => fetch(u).then(r => r.json())), fetch('beleza.json').then(r => r.ok ? r.json() : []).catch(() => [])]).then(([loc, lj, lm, pc, bl]) => {
+  KINDS = loc.kinds; GRUPOS = loc.grupos; KINDS.forEach(k => KIND[k.k] = k);
+  LOC = loc.locais.map(([id, kind, tipo, pin, nome, desc_tipo, area, x, y, desc, real]) => ({id, kind, tipo, pin, nome, desc_tipo, area, x, y, desc, real, src:'og'}));
+  TIPOS = lj.tipos; LOJAS = lj.lojas;
+  BLD = lm.map(([id, nome, lugar, x, y, cat, flags, real]) => ({id, nome, lugar, x, y, cat, flags, real, src:'gtadb', kind:'gtadb'}));
+  BASEW = pc; BASEB = Array.isArray(bl) ? bl : [];
+  SALOES = LOC.filter(p => p.tipo === 'haircut').map(p => ({id:p.id, nome:p.nome.replace(/’/g, "'"), marca:p.nome.replace(/’/g, "'"), tipo:'beleza', area:p.area, x:p.x, y:p.y}));
+  [...LOC, ...BLD].forEach(p => BYID[p.id] = p);
+  $('#loading').remove();
+  buildLabels(); renderSide(); render(); loadCatalog().then(fromHash);
+}).catch(e => { $('#loading').textContent = 'Não consegui carregar os dados.'; console.error(e); });
+
+const isShop = p => p && p.src === 'og' && (p.tipo === 'clothing' || p.tipo === 'footwear' || p.tipo === 'haircut');
+let SALOES = [];
+const lojaById = id => LOJAS.find(l => l.id === id) || SALOES.find(l => l.id === id);
+const getP = id => BYID[id] || S.custom.find(p => p.id === id);
+const titleOf = p => p.nome || (p.lugar ? p.lugar.split(', ')[0] : 'Sem nome');
+
+/* ---------- desenho: bolinhas de longe, ícones de perto, só o que está na tela ---------- */
+function visibleOG(p){
+  if (S.off[p.kind]) return focusIds && focusIds.has(p.id);
+  if (S.hideFound && S.found[p.id] && p.id !== sel) return false;
+  return true;
+}
+let rT = 0;
+function render(){ clearTimeout(rT); rT = setTimeout(draw, 30); }
+function draw(){
+  dotLayer.clearLayers(); pinLayer.clearLayers(); bldLayer.clearLayers();
+  const z = map.getZoom(), b = map.getBounds().pad(.15), near = z >= 3.75;
+  const cells = new Map(), CELL = 84;
+  for (const p of LOC){
+    if (!visibleOG(p)) continue;
+    const ll = toLL(p.x, p.y); if (!b.contains(ll)) continue;
+    const k = KIND[p.kind] || {cor:'#ccc', emoji:'•'}, got = !!S.found[p.id];
+    const dim = focusIds && !focusIds.has(p.id), hl = (focusIds && focusIds.has(p.id)) || p.id === sel;
+    if (near || hl){
+      const cls = `pinimg${got ? ' found' : ''}${dim ? ' dim' : ''}${hl ? ' hl' : ''}`;
+      const icon = p.pin ? L.icon({iconUrl:'pins/' + p.pin + '.webp', iconSize:hl ? [35, 40] : [28, 32], iconAnchor:hl ? [17.5, 40] : [14, 32], className:cls})
+        : L.divIcon({className:'', iconSize:[26, 26], iconAnchor:[13, 13], html:`<div class="fb${got ? ' found' : ''}${dim ? ' dim' : ''}" style="--c:${k.cor}">${k.emoji}</div>`});
+      L.marker(ll, {icon, title:p.nome, zIndexOffset:hl ? 1000 : 0, keyboard:false}).on('click', () => select(p.id)).addTo(pinLayer);
+    } else {
+      /* de longe: agrupa por célula de tela (coordenada global de pixel, estável ao arrastar) */
+      const pt = map.project(ll, z), key = Math.floor(pt.x / CELL) + ',' + Math.floor(pt.y / CELL);
+      let arr = cells.get(key); if (!arr) cells.set(key, arr = []);
+      arr.push({p, ll, k, got, dim});
+    }
+  }
+  const dot = a => L.circleMarker(a.ll, {renderer:canvas, radius:4.5, color:'#0b1015', weight:1.2, fillColor:a.got ? '#64748b' : a.k.cor, fillOpacity:a.dim ? .15 : .95, opacity:a.dim ? .15 : 1})
+    .bindTooltip(esc(a.p.nome), {direction:'top', offset:[0, -4]}).on('click', () => select(a.p.id)).addTo(dotLayer);
+  cells.forEach(arr => {
+    if (arr.length < 3) return arr.forEach(dot);
+    const n = arr.length, f = arr.filter(a => a.got).length, cnt = {};
+    arr.forEach(a => cnt[a.p.kind] = (cnt[a.p.kind] || 0) + 1);
+    const top = Object.entries(cnt).sort((x, y) => y[1] - x[1]);
+    const cor = (KIND[top[0][0]] || {cor:'#ccc'}).cor, sz = n < 10 ? 30 : n < 40 ? 36 : n < 150 ? 42 : 48;
+    const lat = arr.reduce((s, a) => s + a.ll.lat, 0) / n, lng = arr.reduce((s, a) => s + a.ll.lng, 0) / n;
+    const tip = top.slice(0, 4).map(([kk, c]) => `${c} · ${esc((KIND[kk] || {}).nome || kk)}`).join('<br>') + (top.length > 4 ? `<br>+ ${top.length - 4} tipos` : '') + (f ? `<br><span style="opacity:.7">${f} já encontrado${f > 1 ? 's' : ''}</span>` : '');
+    L.marker([lat, lng], {keyboard:false, icon:L.divIcon({className:'', iconSize:[sz, sz], iconAnchor:[sz / 2, sz / 2],
+      html:`<div class="clu${arr.every(a => a.dim) ? ' dim' : ''}" style="--c:${cor};--f:${f / n * 360}deg;width:${sz}px;height:${sz}px"><span>${n}</span></div>`})})
+      .bindTooltip(tip, {direction:'top', offset:[0, -sz / 2]})
+      .on('click', () => map.flyTo([lat, lng], Math.min(Math.max(z + 1.25, 2.5), 4), {duration:.5})).addTo(pinLayer);
+  });
+  if (!S.off.gtadb){
+    for (const p of BLD){
+      if (S.named && !p.nome && p.id !== sel) continue;
+      if (S.hideFound && S.found[p.id] && p.id !== sel) continue;
+      const ll = toLL(p.x, p.y); if (!b.contains(ll)) continue;
+      L.circleMarker(ll, {renderer:canvas, radius:p.id === sel ? 8 : 3.5, color:p.id === sel ? '#fff' : '#0b1015', weight:1, fillColor:S.found[p.id] ? '#64748b' : '#e2e8f0', fillOpacity:.8})
+        .bindTooltip(esc(titleOf(p)), {direction:'top'}).on('click', () => select(p.id)).addTo(bldLayer);
+    }
+  }
+}
+map.on('moveend zoomend', render);
+function renderMine(){
+  mineLayer.clearLayers();
+  if (S.off.meus) return;
+  for (const p of S.custom){
+    if (S.hideFound && S.found[p.id] && p.id !== sel) continue;
+    const icon = L.divIcon({className:'', html:`<div class="pin ${S.found[p.id] ? 'found' : ''}" style="--c:#ff4f8b"><span>📌</span></div>`, iconSize:[26, 26], iconAnchor:[13, 30]});
+    L.marker(toLL(p.x, p.y), {icon, title:p.nome}).on('click', () => { if (!adding) select(p.id); }).addTo(mineLayer);
+  }
+}
+
+/* nomes de cidades e bairros, a partir dos prédios da GTADB */
+let cityLbl = [], hoodLbl = [];
+function buildLabels(){
+  const med = a => { a = [...a].sort((x, y) => x - y); return a[a.length >> 1]; };
+  const group = f => { const g = {}; BLD.forEach(p => { const k = f(p); if (k) (g[k] = g[k] || []).push(p); }); return g; };
+  const cities = group(p => { const a = p.lugar.split(', '); return a[a.length - 1]; });
+  const hoods = group(p => { const a = p.lugar.split(', '); return a.length >= 2 ? a[a.length - 2] + '|' + a[a.length - 1] : null; });
+  const mk = (name, ps, cls) => L.tooltip({permanent:true, direction:'center', className:'lbl ' + cls, interactive:false}).setLatLng(toLL(med(ps.map(p => p.x)), med(ps.map(p => p.y)))).setContent(esc(name));
+  cityLbl = Object.entries(cities).filter(([k, v]) => v.length >= 12 && k !== 'Leonida' && !/County$/.test(k)).map(([k, v]) => mk(k, v, ''));
+  hoodLbl = Object.entries(hoods).filter(([k, v]) => v.length >= 6).map(([k, v]) => mk(k.split('|')[0], v, 'sub'));
+  updateLabels();
+}
+function updateLabels(){ labelsLayer.clearLayers(); if (!S.labels) return; (map.getZoom() < 4.5 ? cityLbl : hoodLbl).forEach(t => labelsLayer.addLayer(t)); }
+map.on('zoomend', updateLabels);
+
+/* ---------- lateral: camadas por grupo, com progresso ---------- */
+function renderSide(){
+  const box = $('#layers'); box.innerHTML = '';
+  const byKind = {}; LOC.forEach(p => (byKind[p.kind] = byKind[p.kind] || []).push(p));
+  const pinOf = {}; LOC.forEach(p => { if (p.pin && !pinOf[p.kind]) pinOf[p.kind] = p.pin; });
+  let tot = 0, fnd = 0;
+  const grupos = [...GRUPOS, 'Seus dados'];
+  grupos.forEach(g => {
+    const rows = g === 'Seus dados'
+      ? [{k:'meus', nome:'Meus pontos', cor:'#ff4f8b', emoji:'📌', n:S.custom.length, f:S.custom.filter(p => S.found[p.id]).length},
+         {k:'gtadb', nome:'Prédios e lugares reais (GTADB)', cor:'#e2e8f0', emoji:'🏢', n:BLD.filter(p => !S.named || p.nome).length, f:BLD.filter(p => (!S.named || p.nome) && S.found[p.id]).length}]
+      : KINDS.filter(k => k.grupo === g && byKind[k.k]).map(k => ({...k, n:byKind[k.k].length, f:byKind[k.k].filter(p => S.found[p.id]).length, pin:pinOf[k.k]}));
+    if (!rows.length) return;
+    const gn = rows.reduce((a, r) => a + r.n, 0), gf = rows.reduce((a, r) => a + r.f, 0);
+    if (g !== 'Seus dados'){ tot += gn; fnd += gf; }
+    const div = document.createElement('div'); div.className = 'grp' + (S.open[g] === false ? ' closed' : '');
+    div.innerHTML = `<div class="grp-h"><span class="car">▾</span><span>${esc(g)}</span><b>${gf}/${gn}</b><button class="gall" title="Ligar/desligar o grupo" style="background:none;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:10px;color:var(--mut)">${rows.every(r => S.off[r.k]) ? 'ligar' : 'desligar'}</button></div><ul class="lay"></ul>`;
+    const ul = div.querySelector('ul');
+    rows.forEach(r => {
+      const li = document.createElement('li'); li.className = S.off[r.k] ? 'off' : ''; li.style.setProperty('--c', r.cor);
+      li.innerHTML = `<span class="ico">${r.pin ? `<img src="pins/${r.pin}.webp" alt="">` : r.emoji}</span><span class="nm">${esc(r.nome)}<div class="bar"><i style="width:${r.n ? r.f / r.n * 100 : 0}%"></i></div></span><span class="ct">${r.f}/${r.n}</span><button class="solo" title="Mostrar só esta camada">só</button>`;
+      li.onclick = e => {
+        if (e.target.classList.contains('solo')){ KINDS.forEach(k => S.off[k.k] = k.k !== r.k); S.off.meus = r.k !== 'meus'; S.off.gtadb = r.k !== 'gtadb'; }
+        else S.off[r.k] = !S.off[r.k];
+        save(); renderSide(); render(); renderMine();
+      };
+      ul.appendChild(li);
+    });
+    div.querySelector('.grp-h').onclick = e => { if (e.target.classList.contains('gall')) return; S.open[g] = div.classList.contains('closed'); save(); div.classList.toggle('closed'); };
+    div.querySelector('.gall').onclick = () => { const on = rows.every(r => S.off[r.k]); rows.forEach(r => S.off[r.k] = !on); save(); renderSide(); render(); renderMine(); };
+    box.appendChild(div);
+  });
+  $('#progTxt').textContent = `${fnd} / ${tot}`;
+  $('#progBar').style.width = (tot ? fnd / tot * 100 : 0) + '%';
+  /* progresso por região */
+  const reg = {};
+  LOC.forEach(p => { const a = p.area || 'Sem região definida', o = reg[a] = reg[a] || {n:0, f:0}; o.n++; if (S.found[p.id]) o.f++; });
+  $('#regs').innerHTML = Object.entries(reg).sort((a, b) => (a[0] === 'Sem região definida') - (b[0] === 'Sem região definida') || b[1].n - a[1].n)
+    .map(([a, o]) => `<div>${esc(a)}<em>${o.f}/${o.n} · ${Math.round(o.f / o.n * 100)}%</em><div class="bar"><i style="width:${o.f / o.n * 100}%"></i></div></div>`).join('');
+}
+$('#regBtn').onclick = () => { const r = $('#regs'); r.hidden = !r.hidden; $('#regBtn').textContent = r.hidden ? 'por região ▾' : 'por região ▴'; };
+$('#allOn').onclick = () => { S.off = {gtadb:S.off.gtadb}; save(); renderSide(); render(); renderMine(); };
+$('#allOff').onclick = () => { KINDS.forEach(k => S.off[k.k] = true); S.off.meus = true; S.off.gtadb = true; save(); renderSide(); render(); renderMine(); };
+$('#fFound').onchange = e => { S.hideFound = e.target.checked; save(); render(); renderMine(); };
+$('#fLabels').onchange = e => { S.labels = e.target.checked; save(); updateLabels(); };
+$('#fNamed').onchange = e => { S.named = e.target.checked; save(); renderSide(); render(); };
+$('#menuBtn').onclick = () => $('#side').classList.toggle('open');
+
+/* busca */
+$('#q').oninput = e => {
+  const q = norm(e.target.value.trim()), box = $('#results'); box.innerHTML = '';
+  if (q.length < 2) return;
+  const pool = [...LOC, ...S.custom, ...BLD.filter(p => p.nome)];
+  const hits = pool.filter(p => norm(`${p.nome} ${p.desc_tipo || ''} ${p.area || ''} ${p.lugar || ''} ${p.real || ''}`).includes(q))
+    .sort((a, b) => (norm(a.nome).startsWith(q) ? 0 : 1) - (norm(b.nome).startsWith(q) ? 0 : 1) || (a.src === 'gtadb') - (b.src === 'gtadb')).slice(0, 14);
+  hits.forEach(p => {
+    const k = p.src === 'og' ? KIND[p.kind] : null, b = document.createElement('button');
+    b.style.setProperty('--c', k ? k.cor : p.custom ? '#ff4f8b' : '#e2e8f0');
+    b.innerHTML = `<span class="ri">${p.pin ? `<img src="pins/${p.pin}.webp" alt="">` : k ? k.emoji : p.custom ? '📌' : '🏢'}</span><span>${esc(titleOf(p))}<small>${esc(k ? k.nome : p.custom ? 'Meu ponto' : 'Prédio (GTADB)')}${p.area || p.lugar ? ' · ' + esc(p.area || p.lugar) : ''}</small></span>`;
+    b.onclick = () => {
+      box.innerHTML = ''; e.target.value = '';
+      if (p.src === 'og' && S.off[p.kind]) S.off[p.kind] = false;
+      if (p.src === 'gtadb') S.off.gtadb = false;
+      save(); renderSide(); select(p.id, true); $('#side').classList.remove('open');
+    };
+    box.appendChild(b);
+  });
+  if (!hits.length) box.innerHTML = '<button disabled style="color:var(--mut)">Nada encontrado</button>';
+  else { box.firstChild.classList.add('act'); box.insertAdjacentHTML('beforeend', '<div class="kbd">↑ ↓ para escolher · Enter para abrir · Esc para fechar</div>'); }
+};
+$('#q').onkeydown = e => {
+  const bs = [...$('#results').querySelectorAll('button:not([disabled])')]; if (!bs.length) return;
+  let i = bs.findIndex(b => b.classList.contains('act'));
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+    e.preventDefault(); if (i >= 0) bs[i].classList.remove('act');
+    i = e.key === 'ArrowDown' ? (i + 1) % bs.length : (i - 1 + bs.length) % bs.length;
+    bs[i].classList.add('act'); bs[i].scrollIntoView({block:'nearest'});
+  } else if (e.key === 'Enter'){ e.preventDefault(); (bs[i] || bs[0]).click(); }
+  else if (e.key === 'Escape'){ e.stopPropagation(); $('#results').innerHTML = ''; e.target.blur(); }
+};
+/* atalho: "/" foca a busca */
+document.addEventListener('keydown', e => { if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){ e.preventDefault(); $('#side').classList.add('open'); $('#q').focus(); } });
+
+/* ---------- próximo não encontrado ---------- */
+function nearest(p, sameKind){
+  let best = null, bd = Infinity;
+  for (const q of LOC){
+    if (q.id === p.id || S.found[q.id]) continue;
+    if (sameKind ? q.kind !== p.kind : S.off[q.kind]) continue;
+    const d = (q.x - p.x) ** 2 + (q.y - p.y) ** 2; if (d < bd){ bd = d; best = q; }
+  }
+  return best ? {p:best, d:Math.sqrt(bd)} : null;
+}
+const fmtDist = d => d < 1000 ? Math.round(d / 10) * 10 + ' m' : (d / 1000).toFixed(1).replace('.', ',') + ' km';
+
+/* ---------- link da vista: #@x,y,zoom;off=camadas ---------- */
+function viewHash(withLayers){
+  const c = fromLL(map.getCenter());
+  let h = `@${Math.round(c.x)},${Math.round(c.y)},${+map.getZoom().toFixed(2)}`;
+  if (withLayers) h += ';off=' + Object.keys(S.off).filter(k => S.off[k]).join(',');
+  return h;
+}
+let hashT = 0;
+map.on('moveend', () => { clearTimeout(hashT); hashT = setTimeout(() => {
+  if (sel || !$('#catalog').hidden || !LOC.length) return;
+  try { history.replaceState(null, '', '#' + viewHash(false)); } catch(e){}
+}, 300); });
+$('#viewLink').onclick = async () => { const u = location.href.split('#')[0] + '#' + viewHash(true); try { await navigator.clipboard.writeText(u); toast('Link da vista copiado (posição, zoom e camadas)'); } catch(e){ toast('Não deu pra copiar aqui'); } };
+
+/* ---------- painel do local ---------- */
+const panel = $('#panel');
+function select(id, fly){
+  const p = getP(id); if (!p) return;
+  sel = id; render(); renderMine();
+  if (fly) map.flyTo(toLL(p.x, p.y), Math.max(map.getZoom(), 5), {duration:.8});
+  try { history.replaceState(null, '', '#' + id); } catch(e){}
+  const got = !!S.found[p.id];
+  const k = p.src === 'og' ? KIND[p.kind] : null;
+  const cor = isShop(p) ? TIPO_COR[(lojaById(p.id) || {}).tipo] || k.cor : k ? k.cor : p.custom ? '#ff4f8b' : '#e2e8f0';
+  const chip = k ? k.nome : p.custom ? 'Meu ponto' : 'Prédio · GTADB';
+  const loja = lojaById(p.id);
+  panel.style.setProperty('--c', cor); panel.classList.remove('mini');
+  const nk = k ? nearest(p, true) : null, na = nearest(p, false);
+  const nearHtml = (nk || na) ? `<div class="sub-h">Próximo ainda não encontrado</div><div class="nearby">
+      ${nk ? `<button data-near="${nk.p.id}"><span>→</span><b>${esc(k.nome)}: ${esc(titleOf(nk.p))}</b><small>${fmtDist(nk.d)}</small></button>` : ''}
+      ${na && (!nk || na.p.id !== nk.p.id) ? `<button data-near="${na.p.id}"><span>→</span><b>${esc((KIND[na.p.kind] || {}).nome || '')}: ${esc(titleOf(na.p))}</b><small>${fmtDist(na.d)}</small></button>` : ''}
+    </div>` : '';
+  panel.innerHTML = `<button class="grab" aria-label="Recolher ou expandir"></button><div class="top"></div><button class="x" aria-label="Fechar">×</button><div class="in">
+    <span class="chip">${p.pin ? `<img src="pins/${p.pin}.webp" style="width:14px;height:16px">` : ''}${esc(chip)}</span>
+    <h2>${esc(titleOf(p))}</h2>
+    <div class="meta">${[loja ? TIPOS[loja.tipo] : p.desc_tipo, p.area || p.lugar].filter(Boolean).map(esc).join(' · ')}${p.x != null ? ` · x ${Math.round(p.x)} · y ${Math.round(p.y)}` : ''}</div>
+    ${(p.flags || []).includes('unconfirmed') ? '<span class="flag warn">Não confirmado</span>' : ''}${(p.flags || []).includes('enterable') ? '<span class="flag">Entrável</span>' : ''}
+    ${p.desc ? `<p>${esc(p.desc)}</p>` : ''}
+    ${p.real ? `<div class="real"><b>Inspirado em</b>${esc(p.real)}</div>` : ''}
+    ${loja ? `<div class="sub-h" id="shopH">Peças vendidas aqui</div><div class="thumbs" id="shopThumbs"></div><div class="store-list" id="shopItems" style="max-height:260px"><span class="muted">Carregando…</span></div><div id="shopMore"></div>` : ''}
+    ${loja && LOJAS.filter(l => l.marca === loja.marca && l.id !== loja.id).length ? `<div class="sub-h">Outras lojas ${esc(loja.marca)}</div><div class="store-list">${LOJAS.filter(l => l.marca === loja.marca && l.id !== loja.id).map(l => `<button data-id="${l.id}">${esc(l.nome)}<small>${esc(l.area)}</small></button>`).join('')}</div>` : ''}
+    ${nearHtml}
+    <div class="acts" style="margin-top:12px">
+      <button class="btn ${got ? 'ok' : ''}" id="pFound">${got ? '✓ Encontrado' : 'Marcar como encontrado'}</button>
+      <button class="btn" id="pLink">Copiar link</button>
+      ${p.custom ? '<button class="btn del" id="pDel" title="Apagar">🗑</button>' : ''}
+    </div>
+    <div class="src">${p.src === 'og' ? 'Fonte: Open GTA 6 Map (CC BY 4.0)' : p.src === 'gtadb' ? 'Fonte: GTADB (CC BY 4.0)' : ''}</div></div>`;
+  panel.hidden = false;
+  panel.querySelector('.x').onclick = closePanel;
+  panel.querySelector('.grab').onclick = () => panel.classList.toggle('mini');
+  panel.querySelectorAll('[data-near]').forEach(b => b.onclick = () => { const q = getP(b.dataset.near); if (q && S.off[q.kind]){ S.off[q.kind] = false; save(); renderSide(); } select(b.dataset.near, true); });
+  panel.querySelectorAll('.store-list button').forEach(b => b.onclick = () => select(b.dataset.id, true));
+  $('#pFound').onclick = () => { if (S.found[p.id]) delete S.found[p.id]; else S.found[p.id] = 1; save(); renderSide(); select(p.id); };
+  $('#pLink').onclick = async () => { try { await navigator.clipboard.writeText(location.href.split('#')[0] + '#' + p.id); toast('Link copiado'); } catch(e){ toast('Não deu pra copiar aqui'); } };
+  if (p.custom) $('#pDel').onclick = () => { S.custom = S.custom.filter(q => q.id !== p.id); delete S.found[p.id]; save(); closePanel(); renderSide(); };
+  if (loja) allItems(loja.tipo === 'beleza' ? 'beleza' : 'roupas').then(items => {
+    const box = $('#shopThumbs'), lst = $('#shopItems'); if (!box || sel !== p.id) return;
+    const catLoja = loja.tipo === 'beleza' ? 'beleza' : 'roupas', info = catLoja === 'beleza' ? salaoInfo(loja.nome) : null;
+    if (info && info.descricao) $('#shopH').insertAdjacentHTML('beforebegin', `<div class="real"><b>O que oferece</b>${esc(info.descricao)}</div>`);
+    const here = items.filter(i => i.lojaIds.includes(loja.id)).sort((a, b) => a.nome.localeCompare(b.nome) || (a.cor || '').localeCompare(b.cor || ''));
+    const fotos = here.filter(temFoto);
+    $('#shopH').textContent = (catLoja === 'beleza' ? 'Serviços aqui' : 'Peças vendidas aqui') + ` (${here.length})`;
+    box.innerHTML = ''; box.style.display = fotos.length ? '' : 'none';
+    fotos.slice(0, 6).forEach(i => { const im = document.createElement('img'); im.src = fotoSrc(i); im.title = i.nome; im.onclick = () => itemDetail(i.id); box.appendChild(im); });
+    lst.innerHTML = here.length ? '' : `<span class="muted">${catLoja === 'beleza' ? 'Nenhum serviço da sua lista de beleza é feito aqui. Importe a lista na aba Beleza.' : 'Nenhuma peça da sua lista é vendida aqui.'}</span>`;
+    here.forEach(i => { const b = document.createElement('button');
+      b.innerHTML = `<span>${esc(i.nome)}${i.cor ? ` <span class="muted">· ${esc(i.cor)}</span>` : ''}</span><small>${[i.preco ? '$' + esc(i.preco) : '', i.personagem ? esc(i.personagem) : '', temFoto(i) ? '📷' : ''].filter(Boolean).join(' · ')}</small>`;
+      b.onclick = () => itemDetail(i.id); lst.appendChild(b); });
+    if (here.length){ const b = document.createElement('button'); b.className = 'btn'; b.style.marginTop = '8px'; b.style.width = '100%';
+      b.textContent = catLoja === 'beleza' ? 'Abrir esses serviços no catálogo' : 'Abrir essas peças no catálogo';
+      b.onclick = () => { Object.assign(C, {loja:loja.id, slot:'', tipo:'', status:'', pers:'', q:''}); $('#cq').value = ''; showCatalog(true, catLoja); }; $('#shopMore').appendChild(b); }
+  });
+}
+function closePanel(){ panel.hidden = true; sel = null; render(); renderMine(); try { history.replaceState(null, '', '#' + viewHash(false)); } catch(e){} }
+function toast(t){ const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; $('#map').appendChild(d); setTimeout(() => d.remove(), 1800); }
+function fromHash(){
+  const id = decodeURIComponent(location.hash.slice(1));
+  if (id === 'catalogo') return showCatalog(true, 'roupas');
+  if (id === 'beleza') return showCatalog(true, 'beleza');
+  if (id.startsWith('@')){
+    const [pos, ...opts] = id.slice(1).split(';'), [x, y, z] = pos.split(',').map(Number);
+    if ([x, y, z].every(isFinite)) map.setView(toLL(x, y), z);
+    const off = opts.find(o => o.startsWith('off='));
+    if (off){ S.off = {}; off.slice(4).split(',').filter(Boolean).forEach(k => S.off[k] = true); save(); renderSide(); render(); renderMine(); }
+    return;
+  }
+  const p = id && getP(id); if (!p) return;
+  if (p.src === 'gtadb'){ S.off.gtadb = false; if (!p.nome){ S.named = false; $('#fNamed').checked = false; } renderSide(); }
+  select(id, true);
+}
+window.addEventListener('hashchange', fromHash);
+map.on('click', e => { if (adding) return addForm(fromLL(e.latlng)); if (!panel.hidden) closePanel(); $('#side').classList.remove('open'); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape'){ if (!$('#modal').hidden) $('#modal').hidden = true; else if (adding) setAdding(false); else if (!panel.hidden) closePanel(); } });
+
+function focusStores(ids, label){
+  focusIds = ids && ids.length ? new Set(ids) : null; panel.hidden = true; sel = null;
+  const bar = $('#brandBar');
+  if (!focusIds){ bar.hidden = true; render(); return; }
+  const ls = LOC.filter(p => focusIds.has(p.id));
+  const sal = ls.length && ls.every(l => l.tipo === 'haircut');
+  bar.innerHTML = `<span>${esc(label)}: ${ls.length} ${sal ? (ls.length === 1 ? 'salão' : 'salões') : (ls.length === 1 ? 'loja' : 'lojas')}</span><button id="bbClear">Mostrar tudo</button>`;
+  bar.hidden = false; $('#bbClear').onclick = () => focusStores(null);
+  if (ls.length === 1) map.flyTo(toLL(ls[0].x, ls[0].y), 5.5, {duration:.8});
+  else if (ls.length) map.flyToBounds(L.latLngBounds(ls.map(l => toLL(l.x, l.y))).pad(.35), {duration:.8, maxZoom:5.5});
+  render();
+}
+
+/* ---------- meus pontos ---------- */
+let adding = false;
+$('#addBtn').onclick = () => setAdding(!adding);
+function setAdding(on){ adding = on; $('#addBtn').classList.toggle('on', on); $('#lmap').classList.toggle('adding', on); $('#hint').textContent = on ? 'Clique no mapa onde quer colocar o ponto' : ''; if (on) $('#side').classList.remove('open'); }
+function addForm({x, y}){
+  setAdding(false); sel = null;
+  panel.style.setProperty('--c', '#ff4f8b');
+  panel.innerHTML = `<div class="top"></div><button class="x">×</button><div class="in">
+    <span class="chip">Novo ponto</span><h2>Adicionar aqui</h2><div class="meta">x ${Math.round(x)} · y ${Math.round(y)}</div>
+    <label>Nome</label><input id="fNome" placeholder="Ex.: Colecionável perto do píer">
+    <label>Tipo</label><input id="fTipo" placeholder="Opcional">
+    <label>Nota</label><textarea id="fDesc" rows="3" placeholder="Opcional"></textarea>
+    <div class="acts" style="margin-top:12px"><button class="btn on" id="fSave">Salvar ponto</button></div></div>`;
+  panel.hidden = false; panel.querySelector('.x').onclick = closePanel; $('#fNome').focus();
+  $('#fSave').onclick = () => {
+    const p = {id:'meu-' + Date.now().toString(36), custom:true, nome:$('#fNome').value.trim() || 'Ponto sem nome', desc_tipo:$('#fTipo').value.trim(), x, y, desc:$('#fDesc').value.trim()};
+    S.custom.push(p); S.off.meus = false; save(); renderSide(); renderMine(); select(p.id);
+  };
+}
+
+/* ---------- modais ---------- */
+const modal = $('#modal'), mbox = $('#mbox');
+function openModal(html){ mbox.style.width = ''; mbox.onpaste = null; mbox.innerHTML = html; modal.hidden = false; mbox.querySelectorAll('[data-close]').forEach(b => b.onclick = () => modal.hidden = true); }
+modal.onclick = e => { if (e.target === modal) modal.hidden = true; };
+function parseTable(txt, nome){
+  if (/\.json$/i.test(nome || '')) return JSON.parse(txt);
+  txt = txt.replace(/^﻿/, '');
+  const linhas = txt.split(/\r?\n/).filter(l => l.trim()); if (!linhas.length) return [];
+  const sep = linhas[0].includes('\t') ? '\t' : linhas[0].includes(';') ? ';' : ',';
+  const parse = l => { const out = []; let cur = '', q = false;
+    for (let i = 0; i < l.length; i++){ const c = l[i];
+      if (q){ if (c === '"' && l[i + 1] === '"'){ cur += '"'; i++; } else if (c === '"') q = false; else cur += c; }
+      else if (c === '"') q = true; else if (c === sep){ out.push(cur); cur = ''; } else cur += c; }
+    out.push(cur); return out; };
+  const cab = parse(linhas[0]).map(h => norm(h.trim()));
+  return linhas.slice(1).map(l => { const v = parse(l), o = {}; cab.forEach((h, i) => o[h] = (v[i] || '').trim()); return o; });
+}
+$('#csvBtn').onclick = () => {
+  openModal(`<h3>Importar pontos</h3><p>Cole uma planilha (CSV, ponto e vírgula ou copiada do Excel) com as colunas <code>nome</code>, <code>tipo</code>, <code>x</code>, <code>y</code>, <code>nota</code>. As coordenadas são as do canto inferior esquerdo do mapa.</p>
+  <textarea id="csvText" spellcheck="false" placeholder="nome;tipo;x;y;nota"></textarea>
+  <div class="acts"><button class="btn on" id="csvGo">Importar</button><button class="btn" data-close>Fechar</button></div>`);
+  $('#csvGo').onclick = () => {
+    let n = 0;
+    parseTable($('#csvText').value, 'x.csv').forEach((r, i) => {
+      const x = parseFloat(String(r.x).replace(',', '.')), y = parseFloat(String(r.y).replace(',', '.'));
+      if (!isFinite(x) || !isFinite(y)) return;
+      S.custom.push({id:'meu-' + Date.now().toString(36) + i, custom:true, nome:r.nome || 'Ponto ' + (i + 1), desc_tipo:r.tipo || '', x, y, desc:r.nota || ''}); n++;
+    });
+    S.off.meus = false; save(); renderSide(); renderMine(); modal.hidden = true; toast(`${n} pontos importados`);
+  };
+};
+$('#ioBtn').onclick = () => {
+  openModal(`<h3>Exportar / importar progresso</h3><p>Copie o texto para guardar o que você encontrou e seus pontos, ou cole um texto exportado antes.</p>
+  <textarea id="ioText" spellcheck="false"></textarea>
+  <div class="acts"><button class="btn" id="ioCopy">Copiar</button><button class="btn" id="ioImport">Importar</button><button class="btn" data-close>Fechar</button></div>`);
+  $('#ioText').value = JSON.stringify({versao:2, encontrados:Object.keys(S.found), pontos:S.custom}, null, 1);
+  $('#ioCopy').onclick = async () => { try { await navigator.clipboard.writeText($('#ioText').value); toast('Copiado'); } catch(e){ $('#ioText').select(); toast('Selecionei o texto: use Ctrl+C'); } };
+  $('#ioImport').onclick = () => {
+    try { const d = JSON.parse($('#ioText').value), have = new Set(S.custom.map(p => p.id));
+      (d.encontrados || d.visitados || []).forEach(id => S.found[id] = 1);
+      (d.pontos || []).forEach(p => { if (p && p.id && !have.has(p.id) && isFinite(p.x) && isFinite(p.y)) S.custom.push({...p, custom:true}); });
+      save(); renderSide(); render(); renderMine(); modal.hidden = true; toast('Importado');
+    } catch(e){ toast('Texto inválido'); }
+  };
+};
+
+/* =================== CATÁLOGO =================== */
+const SLOTS_CAT = {roupas:['Parte de cima', 'Parte de baixo', 'Calçados', 'Acessórios', 'Conjuntos'], beleza:['Cabelo', 'Barba', 'Maquiagem', 'Unhas']};
+const slotBeleza = t => /barba/i.test(t) ? 'Barba' : /maquiagem|makeup/i.test(t) ? 'Maquiagem' : /unha|nail/i.test(t) ? 'Unhas' : 'Cabelo';
+let CAT = 'roupas';
+const LISTAS = {roupas:null, beleza:null};
+let SALINFO = null;
+const PECAS = ['Camiseta','Regata','Camisa','Manga longa','Moletom','Moletom com capuz','Jaqueta','Calça','Bermuda / short','Vestido','Saia','Macacão','Tênis','Sapato / bota','Chinelo / sandália','Meias','Boné / chapéu','Máscara','Óculos','Joias','Relógio','Bolsa','Conjunto','Outro'];
+const TIPO_EN = [[/\bt-?shirts?\b|\btee\b/i,'Camiseta'],[/tank/i,'Regata'],[/hoodie/i,'Moletom com capuz'],[/sweat/i,'Moletom'],[/long sleeve/i,'Manga longa'],[/jacket|coat|blazer|vest|gilet/i,'Jaqueta'],[/shirt|polo|top|blouse|bikini top|bra/i,'Camisa'],
+  [/jean|pant|trouser|jogger|legging/i,'Calça'],[/short|cutoff|trunk/i,'Bermuda / short'],[/skirt/i,'Saia'],[/dress/i,'Vestido'],[/jumpsuit|one piece|swimsuit|overall/i,'Macacão'],[/flip|sandal|slide/i,'Chinelo / sandália'],[/sock/i,'Meias'],
+  [/boot|loafer|heel|oxford|shoe|uggl/i,'Sapato / bota'],[/sneaker|trainer|high top|low top|runner/i,'Tênis'],[/mask|balaclava|bandana/i,'Máscara'],[/cap|hat|beanie|headwear|helmet|visor/i,'Boné / chapéu'],[/shade|glass|eyewear|specs/i,'Óculos'],
+  [/chain|ring|necklace|earring|jewel|bracelet|nail|piercing/i,'Joias'],[/watch/i,'Relógio'],[/bag|purse|backpack/i,'Bolsa'],[/outfit/i,'Conjunto']];
+const tipoPT = t => PECAS.includes(t) ? t : (TIPO_EN.find(([re]) => re.test(t || '')) || [0, 'Outro'])[1];
+const SLOT_OF = t => ({'Calça':'Parte de baixo','Bermuda / short':'Parte de baixo','Saia':'Parte de baixo','Tênis':'Calçados','Sapato / bota':'Calçados','Chinelo / sandália':'Calçados','Meias':'Calçados',
+  'Boné / chapéu':'Acessórios','Máscara':'Acessórios','Óculos':'Acessórios','Joias':'Acessórios','Relógio':'Acessórios','Bolsa':'Acessórios','Outro':'Acessórios','Conjunto':'Conjuntos','Macacão':'Conjuntos'}[t] || 'Parte de cima');
+const slotPT = (sl, tipo) => ({tops:'Parte de cima', bottoms:'Parte de baixo', footwear:'Calçados', shoes:'Calçados', accessories:'Acessórios', headwear:'Acessórios', eyewear:'Acessórios', jewelry:'Acessórios', watches:'Acessórios', bags:'Acessórios', outfit:'Conjuntos', outfits:'Conjuntos', 'one piece suits':'Conjuntos', 'one pieces':'Conjuntos', 'one piece':'Conjuntos'}[norm(sl).trim()] || SLOT_OF(tipo));
+
+/* ligação peça -> loja: pelo NOME da loja, como a lista informa.
+   1) nome exato da loja ("Slinger - Downtown", "Billie's Key Lento Gift Shop")
+   2) só a marca ("Slinger") -> todas as lojas da marca
+   3) nome sem o "The" / sem o número da filial
+   O que não bate aparece na peça como "não encontrada no mapa". */
+const ALIAS = {'pearl hair salon':'pearl house hair salon', 'l s hair beauty':'lori scott hair beauty', 'ls hair beauty':'lori scott hair beauty', 'cpt starlings barber':'captain starlings barber shop', 'captain starlings barber':'captain starlings barber shop'};
+const lkey = s => { const k = keyOf(String(s).replace(/^the\s+/i, '').replace(/&/g, ' ')); return ALIAS[k] || k; };
+function lojasDe(nomes, cat){
+  const pool = cat === 'beleza' ? SALOES : LOJAS, ids = new Set(), miss = [];
+  (nomes || []).forEach(n => {
+    const k = lkey(n); if (!k) return;
+    let hit = pool.filter(l => lkey(l.nome) === k);
+    if (!hit.length) hit = pool.filter(l => lkey(l.marca) === k);
+    if (!hit.length) hit = pool.filter(l => lkey(l.nome).replace(/ \d+$/, '') === k.replace(/ \d+$/, ''));
+    if (!hit.length && cat === 'beleza') hit = pool.filter(l => lkey(l.nome).startsWith(k) || k.startsWith(lkey(l.nome)));
+    if (hit.length) hit.forEach(l => ids.add(l.id)); else miss.push(n);
+  });
+  return {ids:[...ids], miss};
+}
+const salaoInfo = nome => SALINFO && SALINFO.saloes.find(x => lkey(x.nome) === lkey(nome));
+
+let DB = null, MEM = {pecas:[], meta:[]}, urls = {};
+const ready = new Promise(res => {
+  try { const r = indexedDB.open('leonida-catalogo', 2);
+    r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains('pecas')) d.createObjectStore('pecas', {keyPath:'id'}); if (!d.objectStoreNames.contains('meta')) d.createObjectStore('meta', {keyPath:'id'}); };
+    r.onsuccess = () => { DB = r.result; res(); }; r.onerror = () => res();
+  } catch(e){ res(); }
+});
+const tx = (store, mode, fn) => ready.then(() => new Promise((res, rej) => {
+  if (!DB){ return res(fn(null)); }
+  const t = DB.transaction(store, mode), st = t.objectStore(store); let out; const r = fn(st);
+  if (r) r.onsuccess = () => out = r.result; t.oncomplete = () => res(out); t.onerror = () => rej(t.error);
+}));
+const dbAll = (s = 'pecas') => tx(s, 'readonly', st => st ? st.getAll() : null).then(r => DB ? (r || []) : MEM[s]);
+const dbGet = (id, s = 'meta') => tx(s, 'readonly', st => st ? st.get(id) : null).then(r => DB ? r : MEM[s].find(x => x.id === id));
+const dbPut = (item, s = 'pecas') => DB ? tx(s, 'readwrite', st => st.put(item)) : Promise.resolve(MEM[s] = MEM[s].filter(i => i.id !== item.id).concat(item));
+const dbDel = (id, s = 'pecas') => DB ? tx(s, 'readwrite', st => st.delete(id)) : Promise.resolve(MEM[s] = MEM[s].filter(i => i.id !== id));
+const temFoto = i => !!(i.foto || i.img);
+const fotoSrc = i => i.foto ? urlOf(i) : (i.img || '');
+function urlOf(i){ if (!i.foto) return ''; if (!urls[i.id] || urls[i.id].b !== i.foto) urls[i.id] = {b:i.foto, u:URL.createObjectURL(i.foto)}; return urls[i.id].u; }
+function shrink(file){ return new Promise((res, rej) => {
+  const img = new Image(); img.onload = () => {
+    const k = Math.min(1, 1100 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+    c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    c.toBlob(b => b ? res(b) : rej(), 'image/jpeg', .86); URL.revokeObjectURL(img.src);
+  }; img.onerror = rej; img.src = URL.createObjectURL(file);
+}); }
+const metaId = c => c === 'beleza' ? 'lista-beleza' : 'lista';
+async function loadCatalog(){ LISTAS.roupas = (await dbGet('lista')) || null; LISTAS.beleza = (await dbGet('lista-beleza')) || null; SALINFO = (await dbGet('saloes')) || null; renderCatalog(); }
+const baseList = c => LISTAS[c] ? LISTAS[c].pecas : c === 'beleza' ? BASEB : BASEW;
+async function allItems(cat = CAT){
+  const recs = await dbAll(), over = {}; recs.forEach(r => over[r.id] = r);
+  const base = baseList(cat).map(b => { const o = over[b.id] || {}, ex = o.lojasExtra || [];
+    return {...b, base:true, foto:o.foto || null, status:o.status || '', criado:o.criado || 0, lojasExtra:ex, lojas:[...(b.lojas || []), ...ex]}; });
+  const mine = recs.filter(r => r.mine || r.id.startsWith('p-')).map(r => ({...r, mine:true})).map(r => ({...r, slot:r.slot || SLOT_OF(r.tipo)}));
+  return base.concat(mine.filter(r => (r.cat || 'roupas') === cat)).map(i => { const {ids, miss} = lojasDe(i.lojas, cat); return {...i, cat, lojaIds:ids, lojaMiss:miss}; });
+}
+const C = {slot:'', tipo:'', loja:'', status:'', pers:'', q:''};
+function showCatalog(on, cat){
+  if (cat && cat !== CAT){ CAT = cat; $('#cq').value = ''; Object.assign(C, {slot:'', tipo:'', q:'', status:'', ...(C.loja && lojaById(C.loja) && (lojaById(C.loja).tipo === 'beleza') === (cat === 'beleza') ? {} : {loja:''})}); }
+  $('#catalog').hidden = !on; $('#tabCat').classList.toggle('on', on && CAT === 'roupas'); $('#tabBel').classList.toggle('on', on && CAT === 'beleza'); $('#tabMap').classList.toggle('on', !on);
+  $('#listBtn').textContent = CAT === 'beleza' ? 'Importar lista de beleza' : 'Importar lista de peças';
+  $('#cq').placeholder = CAT === 'beleza' ? 'Buscar corte, maquiagem, salão…' : 'Buscar peça, cor, loja…';
+  try { history.replaceState(null, '', on ? (CAT === 'beleza' ? '#beleza' : '#catalogo') : '#' + viewHash(false)); } catch(e){}
+  if (on){ panel.hidden = true; renderCatalog(); } else map.invalidateSize();
+}
+$('#tabCat').onclick = () => showCatalog(true, 'roupas');
+$('#tabBel').onclick = () => showCatalog(true, 'beleza');
+$('#tabMap').onclick = () => showCatalog(false);
+let busy = 0;
+async function renderCatalog(){
+  if (!LOJAS.length) return;
+  const my = ++busy, items = await allItems(); if (my !== busy) return;
+  const usadas = [...new Set(items.flatMap(i => i.lojaIds))].map(lojaById).filter(Boolean).sort((a, b) => a.nome.localeCompare(b.nome));
+  $('#cLoja').innerHTML = `<option value="">${CAT === 'beleza' ? 'Todos os salões' : 'Todas as lojas'}</option><option value="_inicio">${CAT === 'beleza' ? 'Sem salão / grátis' : 'Liberadas sem comprar'}</option>` + usadas.map(l => `<option value="${l.id}">${esc(l.nome)}</option>`).join('');
+  $('#cLoja').value = C.loja;
+  const tipos = [...new Set(items.filter(i => !C.slot || i.slot === C.slot).map(i => i.tipo))].sort();
+  $('#cTipo').innerHTML = '<option value="">Todos os tipos</option>' + tipos.map(t => `<option>${esc(t)}</option>`).join(''); $('#cTipo').value = C.tipo;
+  $('#cPers').value = C.pers; $('#cStatus').value = C.status;
+  $('#cTypes').innerHTML = ['', ...SLOTS_CAT[CAT]].filter(t => !t || items.some(i => i.slot === t)).map(t => `<button data-t="${t}" class="${C.slot === t ? 'on' : ''}">${t || 'Tudo'} <span style="opacity:.6">${items.filter(i => !t || i.slot === t).length}</span></button>`).join('');
+  $('#cTypes').querySelectorAll('button').forEach(b => b.onclick = () => { C.slot = b.dataset.t; C.tipo = ''; renderCatalog(); });
+  const q = norm(C.q);
+  const list = items.filter(i => (!C.slot || i.slot === C.slot) && (!C.tipo || i.tipo === C.tipo)
+    && (!C.loja || (C.loja === '_inicio' ? (!i.lojas || !i.lojas.length) : i.lojaIds.includes(C.loja)))
+    && (!C.pers || !i.personagem || i.personagem.includes(C.pers))
+    && (!C.status || (C.status === 'foto' ? temFoto(i) : C.status === 'semfoto' ? !temFoto(i) : i.status === C.status))
+    && (!q || norm(`${i.nome} ${i.cor || ''} ${i.tipo} ${(i.lojas || []).join(' ')} ${i.nota || ''}`).includes(q)))
+    .sort((a, b) => (!!b.foto - !!a.foto) || a.nome.localeCompare(b.nome) || (a.cor || '').localeCompare(b.cor || ''));
+  const nFoto = items.filter(temFoto).length, semLoja = items.filter(i => i.lojaMiss.length).length;
+  $('#cCount').textContent = `${list.length} de ${items.length} ${CAT === 'beleza' ? 'itens' : 'peças'} · ${nFoto} com foto` + (semLoja ? ` · ${semLoja} com ${CAT === 'beleza' ? 'salão' : 'loja'} não encontrad${CAT === 'beleza' ? 'o' : 'a'} no mapa` : '');
+  const LISTA = LISTAS[CAT];
+  if (CAT === 'beleza'){
+    $('#cNote').innerHTML = LISTA ? `Lista de beleza importada por você (${esc(LISTA.origem || 'arquivo')}, ${LISTA.pecas.length} itens). Dados: <a href="https://meowdb.com/gta6/barbers" target="_blank" rel="noopener">NiaMeowDB</a>. Salões: Open GTA 6 Map (CC BY 4.0). Fotos e lista ficam só neste navegador.`
+      : 'Ainda não há lista de beleza. Clique em “Importar lista de beleza” e escolha o <code>_lista.csv</code> (e, se quiser, o <code>_saloes.csv</code>) gerados pelo script do MeowDB.';
+    if (!items.length) $('#grid').innerHTML = '';
+  } else $('#cNote').innerHTML = LISTA
+    ? `Lista de peças importada por você (${esc(LISTA.origem || 'arquivo')}, ${LISTA.pecas.length} peças, ${new Date(LISTA.quando).toLocaleDateString('pt-BR')}). <a href="#" id="backWiki">Voltar para a lista da The Games Wiki</a>. Lojas: Open GTA 6 Map (CC BY 4.0). Fotos e lista ficam só neste navegador.`
+    : 'Lista de peças: <a href="https://thegameswiki.com/gta6/wiki/clothing-and-appearance" target="_blank" rel="noopener">The Games Wiki</a> (CC BY-NC-SA 4.0), parcial. Lojas: Open GTA 6 Map (CC BY 4.0). Use “Importar lista de peças” para trocar pela planilha do seu script. As fotos ficam só neste navegador.';
+  if ($('#backWiki')) $('#backWiki').onclick = async e => { e.preventDefault(); await dbDel('lista', 'meta'); LISTAS.roupas = null; renderCatalog(); toast('Voltou para a lista da wiki'); };
+  const grid = $('#grid'); grid.innerHTML = list.length ? '' : '<p class="muted" style="grid-column:1/-1">Nenhuma peça com esses filtros.</p>';
+  const frag = document.createDocumentFragment();
+  list.slice(0, 600).forEach(i => {
+    const d = document.createElement('div'); d.className = 'card';
+    const onde = !i.lojas || !i.lojas.length ? (i.liberacao ? 'Liberada sem comprar' : '') : i.lojaIds.length ? (i.cat === 'beleza' ? (i.lojaIds.length > 1 ? `${i.lojaIds.length} salões` : (lojaById(i.lojaIds[0]) || {}).nome) : `${i.lojaIds.length} loja${i.lojaIds.length > 1 ? 's' : ''}`) : (i.cat === 'beleza' ? 'salão fora do mapa' : 'loja fora do mapa');
+    d.innerHTML = `${i.status ? `<span class="badge ${i.status}">${i.status === 'tenho' ? 'Tenho' : 'Quero'}</span>` : ''}
+      ${temFoto(i) ? `<img alt="" loading="lazy" src="${fotoSrc(i)}">` : `<div class="ph"><b>${esc(i.tipo)}</b><span>＋ adicionar foto</span></div>`}
+      <div class="b"><div class="n">${esc(i.nome)}</div>${i.cor ? `<div class="m">${esc(i.cor)}</div>` : ''}<div class="m">${[i.preco ? '$' + esc(i.preco) : '', i.personagem ? esc(i.personagem) : '', esc(onde)].filter(Boolean).join(' · ')}</div></div>`;
+    d.onclick = () => itemDetail(i.id);
+    frag.appendChild(d);
+  });
+  grid.appendChild(frag);
+  if (list.length > 600) grid.insertAdjacentHTML('beforeend', `<p class="muted" style="grid-column:1/-1">Mostrando 600 de ${list.length}. Use os filtros para ver o resto.</p>`);
+}
+$('#cq').oninput = e => { C.q = e.target.value; renderCatalog(); };
+$('#cLoja').onchange = e => { C.loja = e.target.value; renderCatalog(); };
+$('#cTipo').onchange = e => { C.tipo = e.target.value; renderCatalog(); };
+$('#cPers').onchange = e => { C.pers = e.target.value; renderCatalog(); };
+$('#cStatus').onchange = e => { C.status = e.target.value; renderCatalog(); };
+$('#addItem').onclick = () => itemForm();
+
+function pickFile(accept, multiple, cb){ const fi = document.createElement('input'); fi.type = 'file'; fi.accept = accept; fi.multiple = !!multiple; fi.onchange = () => cb(fi.files); fi.click(); }
+async function saveOverlay(i, patch){
+  const rec = i.mine ? {...i, ...patch} : {id:i.id, foto:i.foto, status:i.status, criado:i.criado || Date.now(), lojasExtra:i.lojasExtra || [], ...patch};
+  delete rec.lojaIds; delete rec.lojaMiss; delete rec.base;
+  try { await dbPut(rec); } catch(e){ toast('Não consegui salvar (espaço do navegador?)'); }
+}
+async function itemDetail(id){
+  const i = (await allItems('roupas')).find(x => x.id === id) || (await allItems('beleza')).find(x => x.id === id); if (!i) return;
+  const ls = i.lojaIds.map(id => LOC.find(p => p.id === id)).filter(Boolean);
+  openModal(`<div class="det">
+    <div>${temFoto(i) ? `<img src="${fotoSrc(i)}" alt="">` : `<div class="drop" id="dDrop">Clique, solte ou cole (Ctrl+V)<br>o print desta peça</div>`}
+      ${i.foto ? '<div class="acts" style="margin-top:8px"><button class="btn" id="dPhoto">Trocar foto</button><button class="btn" id="dRm" style="color:#f87171">Remover foto</button></div>'
+        : i.img ? '<p class="muted" style="font-size:11px;margin-top:6px">Foto do site publicado.</p><div class="acts" style="margin-top:6px"><button class="btn" id="dPhoto">Usar meu print</button></div>' : ''}</div>
+    <div><span class="chip" style="--c:#fb923c">${esc(i.slot)} · ${esc(i.tipo)}</span>
+    <h3 style="margin-top:8px">${esc(i.nome)}</h3>
+    <div class="muted">${[i.cor, i.preco ? '$' + i.preco : '', i.personagem].filter(Boolean).map(esc).join(' · ')}</div>
+    ${i.liberacao ? `<p class="muted" style="margin-top:8px">🔓 ${esc(i.liberacao)}</p>` : ''}
+    ${i.nota ? `<p class="muted" style="margin-top:6px">${esc(i.nota)}</p>` : ''}
+    ${i.precosVariante ? `<p class="muted" style="margin-top:6px">💲 ${esc(i.precosVariante)}</p>` : ''}
+    ${i.obs ? `<p class="muted" style="margin-top:6px">ℹ️ ${esc(i.obs)}</p>` : ''}
+    <div class="seg"><button data-s="quero" class="${i.status === 'quero' ? 'on' : ''}">Quero</button><button data-s="tenho" class="${i.status === 'tenho' ? 'on' : ''}">Tenho</button></div>
+    <div class="sub-h">${i.cat === 'beleza' ? 'Onde fazer' : 'Onde comprar'}</div>
+    ${!i.lojas || !i.lojas.length ? `<p class="muted">${i.cat === 'beleza' ? 'Sem salão informado.' : 'Não é vendida em loja.'}</p>` : ''}
+    <div class="store-list">${ls.map(l => `<button data-id="${l.id}">${esc(l.nome)}<small>${esc(l.area)}</small></button>`).join('')}</div>
+    ${i.lojaMiss.length ? `<div class="miss">${i.cat === 'beleza' ? 'Salão' : 'Loja'} não encontrado no mapa: ${i.lojaMiss.map(esc).join(', ')}</div>` : ''}
+    ${!ls.length && !i.inicial && !i.liberacao ? `<p class="muted" style="margin-top:8px">${i.cat === 'beleza' ? 'Ainda sem salão ligado no mapa.' : 'Loja ainda não registrada.'} Viu ${i.cat === 'beleza' ? 'esse serviço em algum salão' : 'essa peça em alguma loja'}?</p>` : ''}
+    <div class="addstore"><input id="aLoja" list="dlAdd" placeholder="${i.cat === 'beleza' ? 'Eu vi neste salão…' : 'Eu vi nesta loja…'}"><datalist id="dlAdd">${[...new Set((i.cat === 'beleza' ? SALOES : LOJAS).map(l => l.nome))].sort().map(n => `<option value="${esc(n)}">`).join('')}</datalist><button class="btn" id="aGo">Adicionar</button></div>
+    ${(i.lojasExtra || []).length ? `<p class="muted" style="font-size:11px;margin-top:4px">Adicionadas por você: ${i.lojasExtra.map(esc).join(', ')} · <a href="#" id="aClr" style="color:#9fc6dd">desfazer</a></p>` : ''}
+    <div class="acts" style="margin-top:12px">${ls.length ? `<button class="btn on" id="dMap">Ver ${i.cat === 'beleza' ? (ls.length > 1 ? 'os ' + ls.length + ' salões' : 'o salão') : (ls.length > 1 ? 'as ' + ls.length + ' lojas' : 'a loja')} no mapa</button>` : ''}</div>
+    <div class="acts">${i.mine ? '<button class="btn" id="dEdit">Editar</button><button class="btn" id="dDel" style="color:#f87171">Excluir</button>' : ''}<button class="btn" data-close>Fechar</button></div>
+    <p class="muted" style="font-size:11px;margin-top:10px">${i.mine ? 'Adicionada por você.' : i.cat === 'beleza' ? 'Dados: NiaMeowDB (meowdb.com/gta6/barbers).' : LISTAS.roupas ? 'Dados da sua lista importada.' : 'Dados da peça: The Games Wiki (CC BY-NC-SA 4.0).'}</p>
+    </div></div>`);
+  mbox.style.width = 'min(860px,100%)';
+  const setPhoto = async files => { const f = files && files[0]; if (!f) return; let b; try { b = await shrink(f); } catch(e){ return toast('Não consegui ler a imagem'); } await saveOverlay(i, {foto:b, criado:Date.now()}); renderCatalog(); itemDetail(i.id); toast('Foto salva'); };
+  const drop = $('#dDrop');
+  if (drop){ drop.onclick = () => pickFile('image/*', false, setPhoto); drop.ondragover = e => e.preventDefault(); drop.ondrop = e => { e.preventDefault(); setPhoto(e.dataTransfer.files); }; }
+  mbox.onpaste = e => setPhoto((e.clipboardData || {}).files);
+  if ($('#dPhoto')) $('#dPhoto').onclick = () => pickFile('image/*', false, setPhoto);
+  if ($('#dRm')) $('#dRm').onclick = async () => { await saveOverlay(i, {foto:null}); renderCatalog(); itemDetail(i.id); };
+  mbox.querySelectorAll('.seg button').forEach(b => b.onclick = async () => { await saveOverlay(i, {status:i.status === b.dataset.s ? '' : b.dataset.s}); renderCatalog(); itemDetail(i.id); });
+  const label = i.nome + (i.cor ? ' (' + i.cor + ')' : '');
+  mbox.querySelectorAll('.store-list button').forEach(b => b.onclick = () => { modal.hidden = true; showCatalog(false); focusStores(ls.map(l => l.id), label); setTimeout(() => select(b.dataset.id, true), 850); });
+  if ($('#dMap')) $('#dMap').onclick = () => { modal.hidden = true; showCatalog(false); focusStores(ls.map(l => l.id), label); };
+  $('#aGo').onclick = async () => {
+    const n = $('#aLoja').value.trim(); if (!n) return;
+    const pool = i.cat === 'beleza' ? SALOES : LOJAS;
+    if (!pool.some(l => l.nome === n)) return toast('Escolha uma loja da lista');
+    if (i.lojas.includes(n)) return toast('Essa loja já está na peça');
+    if (i.mine) await saveOverlay(i, {lojas:[...i.lojas, n]}); else await saveOverlay(i, {lojasExtra:[...(i.lojasExtra || []), n]});
+    renderCatalog(); itemDetail(i.id); toast('Loja adicionada');
+  };
+  if ($('#aClr')) $('#aClr').onclick = async e => { e.preventDefault(); await saveOverlay(i, {lojasExtra:[]}); renderCatalog(); itemDetail(i.id); };
+  if ($('#dEdit')) $('#dEdit').onclick = () => itemForm(i);
+  if ($('#dDel')) $('#dDel').onclick = async () => { if ($('#dDel').dataset.ok){ await dbDel(i.id); modal.hidden = true; renderCatalog(); toast('Peça excluída'); } else { $('#dDel').dataset.ok = 1; $('#dDel').textContent = 'Confirmar exclusão'; } };
+}
+function itemForm(item){
+  const it = item || {};
+  const nomesLoja = [...new Set((CAT === 'beleza' ? SALOES : LOJAS).map(l => l.nome))].sort();
+  openModal(`<h3>${item ? 'Editar peça' : 'Nova peça (fora da lista)'}</h3>
+    <div class="form-grid" style="margin-top:12px">
+      <div><label>Foto (print do jogo)</label><div class="drop" id="fDrop">${it.foto ? `<img src="${urlOf(it)}">` : 'Clique, solte ou cole a imagem'}</div></div>
+      <div>
+        <div class="fld" style="margin-top:0"><label>Nome da peça</label><input id="fN" value="${esc(it.nome || '')}"></div>
+        <div class="fld"><label>Cor / design</label><input id="fC" value="${esc(it.cor || '')}"></div>
+        <div class="fld"><label>Lojas (separe com | ; pode ser só a marca)</label><input id="fL" list="dlLojas" value="${esc((it.lojas || []).join(' | '))}" placeholder="Ex.: Slinger - Downtown | Nola"><datalist id="dlLojas">${nomesLoja.map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>
+        <div class="fld"><label>Tipo</label><select id="fT">${PECAS.map(t => `<option ${t === (it.tipo || 'Camiseta') ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+        <div class="fld"><label>Preço ($)</label><input id="fP" value="${esc(it.preco || '')}" inputmode="decimal"></div>
+        <div class="fld"><label>Nota</label><input id="fNo" value="${esc(it.nota || '')}"></div>
+      </div>
+    </div>
+    <div class="acts"><button class="btn on" id="fSaveI">Salvar</button><button class="btn" data-close>Cancelar</button></div>`);
+  mbox.style.width = 'min(720px,100%)';
+  let blob = it.foto || null; const drop = $('#fDrop');
+  const take = async files => { const f = files && files[0]; if (!f) return; blob = await shrink(f); drop.innerHTML = `<img src="${URL.createObjectURL(blob)}">`; };
+  drop.onclick = () => pickFile('image/*', false, take); drop.ondragover = e => e.preventDefault(); drop.ondrop = e => { e.preventDefault(); take(e.dataTransfer.files); };
+  mbox.onpaste = e => take((e.clipboardData || {}).files);
+  $('#fSaveI').onclick = async () => {
+    const nome = $('#fN').value.trim(); if (!nome) return toast('Dê um nome à peça');
+    const tipo = $('#fT').value;
+    const obj = {id:it.id || 'p-' + Date.now().toString(36), mine:true, cat:it.cat || CAT, criado:it.criado || Date.now(), status:it.status || '', foto:blob, nome, cor:$('#fC').value.trim(),
+      lojas:$('#fL').value.split('|').map(s => s.trim()).filter(Boolean), tipo, slot:(it.cat || CAT) === 'beleza' ? slotBeleza(tipo) : SLOT_OF(tipo), preco:$('#fP').value.trim(), nota:$('#fNo').value.trim()};
+    await dbPut(obj); modal.hidden = true; showCatalog(true); toast('Peça salva');
+  };
+}
+
+/* importar a planilha do script (ou outra lista) como a lista principal de peças */
+function linhaParaPeca(r, n){
+  if (CAT === 'beleza'){
+    const nome = r.nome || r.name || ''; if (!nome) return null;
+    const tipo = r.tipo || r.type || 'Outro';
+    return {id:'m' + (r.id_meowdb || keyOf(nome + ' ' + (r.lojas || '')).replace(/ /g, '-')), nome, cor:r.cor || '', tipo, slot:slotBeleza(tipo + ' ' + (r.tipo_site || '')),
+      preco:String(r.preco || '').replace(/[^\d.]/g, ''), precosVariante:r.precos_por_variante && !/^padr[aã]o: \$\d+$/.test(r.precos_por_variante) ? r.precos_por_variante : '',
+      lojas:String(r.lojas || '').split(/\s*\|\s*/).filter(Boolean), liberacao:r.liberacao || '', obs:r.observacoes || '', personagem:r.personagem || '', arquivo:r.arquivo || ''};
+  }
+  const nome = r.nome || r.name || r.item || '', cor = r.cor || r.design || '';
+  if (!nome) return null;
+  const tipoOrig = r.tipo || r.type || '', tipo = tipoPT(tipoOrig || nome);
+  const lojasTxt = r.lojas || r.shops || r.stores || r['where to get'] || '';
+  const lojas = String(lojasTxt).split(/\s*[|;・•]\s*/).map(s => s.trim()).filter(s => s && !/^unlock|available/i.test(s));
+  const lib = r.liberacao || r.unlock || (/available|unlock/i.test(lojasTxt) ? lojasTxt : '');
+  const gid = r.id_game8 || r.id || '';
+  return {id:gid ? 'g' + gid : 'l' + keyOf(nome + ' ' + cor).replace(/ /g, '-') + (n ? '' : ''), nome, cor, tipo, slot:slotPT(r.slot, tipo), tipoOriginal:tipoOrig,
+    preco:String(r.preco || r.cost || r.price || '').replace(/[^\d.]/g, ''), lojas, liberacao:lib, personagem:r.personagem || r.character || '', arquivo:r.arquivo || ''};
+}
+$('#listBtn').onclick = () => {
+  const bel = CAT === 'beleza';
+  openModal(`<h3>${bel ? 'Importar lista de beleza' : 'Importar lista de peças'}</h3>
+    ${bel ? '<p>Escolha o <code>_lista.csv</code> do script do MeowDB. Pode selecionar junto o <code>_saloes.csv</code>: a descrição de cada salão aparece no mapa. Os nomes de salão são ligados ao mapa mesmo quando vêm abreviados (ex.: “Cpt. Starlings Barber”).</p>' : '<p>Escolha o <code>_lista.json</code> ou o <code>_lista.csv</code> gerado pelo script. Ele vira a lista do catálogo no lugar da lista da wiki. As fotos que você já colocou são levadas para as peças com o mesmo nome e cor.</p>'}
+    <p>Cada peça é ligada às lojas pelo <b>nome da loja</b> que a lista traz: nome exato (ex.: <code>Slinger - Downtown</code>), ou só a marca (<code>Slinger</code> = todas as lojas Slinger). O que não bater aparece na peça como “loja não encontrada no mapa”.</p>
+    <div class="drop" id="lDrop" style="aspect-ratio:auto;padding:30px">Clique para escolher o arquivo<br>ou solte aqui</div>
+    <div id="lOut" class="muted" style="margin-top:10px;max-height:240px;overflow:auto"></div>
+    <div class="acts"><button class="btn" data-close>Fechar</button></div>`);
+  const run = async files => {
+    files = [...(files || [])]; if (!files.length) return;
+    let f = null, rows = null, salTxt = '';
+    for (const x of files){
+      let r; try { r = parseTable(await x.text(), x.name); } catch(e){ toast('Não consegui ler ' + x.name); continue; }
+      const cab = r.length ? Object.keys(r[0]) : [];
+      if (cab.includes('local') && cab.includes('descricao') && !cab.includes('tipo')){ SALINFO = {id:'saloes', saloes:r.map(o => ({nome:o.nome, local:o.local, descricao:o.descricao}))}; await dbPut(SALINFO, 'meta'); salTxt = `<br>${r.length} salões com descrição importados.`; }
+      else { f = x; rows = r; }
+    }
+    if (!rows){ $('#lOut').innerHTML = salTxt || 'Nenhuma lista reconhecida.'; return; }
+    const vistos = new Set(), pecas = [];
+    rows.forEach((r, n) => { const p = linhaParaPeca(r, n); if (!p) return; let id = p.id, k = 2; while (vistos.has(id)) id = p.id + '-' + k++; vistos.add(id); p.id = id; pecas.push(p); });
+    if (!pecas.length) return $('#lOut').textContent = 'Nenhuma peça reconhecida no arquivo.';
+    const antes = await allItems(CAT), fotos = {};
+    antes.filter(i => !i.mine && (i.foto || i.status)).forEach(i => fotos[keyOf(i.nome + ' ' + (i.cor || ''))] = i);
+    let mov = 0;
+    for (const p of pecas){ const o = fotos[keyOf(p.nome + ' ' + p.cor)]; if (o && o.id !== p.id){ await dbPut({id:p.id, foto:o.foto, status:o.status, criado:o.criado || Date.now()}); mov++; } }
+    LISTAS[CAT] = {id:metaId(CAT), origem:f.name, quando:Date.now(), pecas}; await dbPut(LISTAS[CAT], 'meta');
+    const miss = {}; pecas.forEach(p => lojasDe(p.lojas, CAT).miss.forEach(m => miss[m] = (miss[m] || 0) + 1));
+    const ligadas = pecas.filter(p => lojasDe(p.lojas, CAT).ids.length).length;
+    $('#lOut').innerHTML = `<b style="color:var(--txt)">${pecas.length} ${bel ? 'itens' : 'peças'} importad${bel ? 'o' : 'a'}s.</b> ${ligadas} ligad${bel ? 'o' : 'a'}s a ${bel ? 'salões' : 'lojas'} do mapa, ${pecas.filter(p => !p.lojas.length).length} sem ${bel ? 'salão' : 'loja'}.` + salTxt +
+      (mov ? `<br>${mov} foto(s) levadas da lista anterior.` : '') +
+      (Object.keys(miss).length ? `<br><br>Nomes de loja que não bateram com o mapa:<br>${Object.entries(miss).sort((a, b) => b[1] - a[1]).map(([m, n]) => `${esc(m)} (${n})`).join('<br>')}` : '<br>Todas as lojas citadas foram encontradas no mapa.');
+    renderCatalog();
+  };
+  const d = $('#lDrop'); d.onclick = () => pickFile('.json,.csv,.txt', true, run); d.ondragover = e => e.preventDefault(); d.ondrop = e => { e.preventDefault(); run(e.dataTransfer.files); };
+};
+/* fotos em lote: liga cada arquivo à peça pelo nome "Nome - Cor.ext" */
+$('#bulkBtn').onclick = () => {
+  openModal(`<h3>Importar fotos em lote</h3>
+    <p>Selecione várias imagens. O nome de cada arquivo deve ser <b>Nome da peça - Cor</b> (ex.: <code>Vice Beach T-Shirt - Turquoise.jpg</code>) ou só o nome. Arquivos que não baterem com a lista viram peças novas.</p>
+    <div class="drop" id="bDrop" style="aspect-ratio:auto;padding:30px">Clique para escolher as imagens<br>ou solte aqui</div>
+    <div id="bOut" class="muted" style="margin-top:10px;max-height:220px;overflow:auto"></div>
+    <div class="acts"><button class="btn" data-close>Fechar</button></div>`);
+  const run = async files => {
+    files = [...files].filter(f => f.type.startsWith('image/')); if (!files.length) return toast('Nenhuma imagem');
+    const items = await allItems(CAT), byFull = {}, byName = {}, byFile = {};
+    items.forEach(i => { if (i.arquivo) byFile[i.arquivo.toLowerCase()] = i; byFull[keyOf(i.nome + ' ' + (i.cor || ''))] = byFull[keyOf(i.nome + ' ' + (i.cor || ''))] || i; const k = keyOf(i.nome); (byName[k] = byName[k] || []).push(i); });
+    const out = $('#bOut'); let ok = 0; const novos = [];
+    for (const [n, f] of files.entries()){
+      out.textContent = `Processando ${n + 1} de ${files.length}…`;
+      const base = f.name.replace(/\.[^.]+$/, ''), k = keyOf(base);
+      let it = byFile[f.name.toLowerCase()] || byFull[k] || (byName[k] && (byName[k].find(i => !i.foto) || byName[k][0]));
+      let blob; try { blob = await shrink(f); } catch(e){ continue; }
+      if (it){ await saveOverlay(it, {foto:blob, criado:Date.now()}); it.foto = blob; ok++; }
+      else { const [nome, ...resto] = base.split(' - '); const tipo = tipoPT(nome);
+        await dbPut({id:'p-' + Date.now().toString(36) + n, mine:true, cat:CAT, criado:Date.now(), status:'', foto:blob, nome:nome.trim(), cor:resto.join(' - ').trim(), lojas:[], tipo, slot:SLOT_OF(tipo), preco:'', nota:'Importada em lote'});
+        novos.push(base); }
+    }
+    out.innerHTML = `<b style="color:var(--txt)">${ok} foto${ok === 1 ? '' : 's'} ligada${ok === 1 ? '' : 's'} a peças da lista.</b>` + (novos.length ? `<br>${novos.length} viraram peças novas:<br>${novos.slice(0, 60).map(esc).join('<br>')}` : '');
+    renderCatalog();
+  };
+  const d = $('#bDrop'); d.onclick = () => pickFile('image/*', true, run); d.ondragover = e => e.preventDefault(); d.ondrop = e => { e.preventDefault(); run(e.dataTransfer.files); };
+};
+
+/* apagar todo o catálogo (lista importada, fotos, status e peças criadas) e, se quiser, importar de novo */
+$('#wipeBtn').onclick = async () => {
+  const items = await allItems(CAT), fotos = items.filter(i => i.foto).length, nome = CAT === 'beleza' ? 'de beleza' : 'de roupas', LISTA = LISTAS[CAT];
+  openModal(`<h3>Apagar o catálogo ${nome}</h3>
+    <p>Isso apaga do catálogo ${nome}, neste navegador: ${LISTA ? `a lista importada (${LISTA.pecas.length} itens), ` : ''}${fotos} foto${fotos === 1 ? '' : 's'}, os status “Quero/Tenho” e os itens que você criou${CAT === 'beleza' ? ' e as descrições dos salões' : ''}. Não dá pra desfazer.</p>
+    <p class="muted">O outro catálogo, o mapa e o que você marcou como encontrado não são afetados.</p>
+    <div class="acts"><button class="btn on" id="wReimp" style="background:#dc2626;border-color:#dc2626">Apagar e importar nova lista</button><button class="btn" id="wOnly" style="color:#f87171">Só apagar</button><button class="btn" data-close>Cancelar</button></div>`);
+  const wipe = async () => {
+    for (const i of items) if (i.mine || i.foto || i.status || (i.lojasExtra || []).length) await dbDel(i.id);
+    await dbDel(metaId(CAT), 'meta'); LISTAS[CAT] = null;
+    if (CAT === 'beleza'){ await dbDel('saloes', 'meta'); SALINFO = null; }
+    items.forEach(i => { if (urls[i.id]){ URL.revokeObjectURL(urls[i.id].u); delete urls[i.id]; } });
+    Object.assign(C, {slot:'', tipo:'', loja:'', status:'', pers:'', q:''}); $('#cq').value = '';
+    await renderCatalog();
+  };
+  $('#wOnly').onclick = async () => { await wipe(); modal.hidden = true; toast('Catálogo apagado'); };
+  $('#wReimp').onclick = async () => { await wipe(); toast('Catálogo apagado'); $('#listBtn').onclick(); };
+};
+
+/* ---------- publicar: gera um .zip com o site, as listas e os seus prints ---------- */
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++){ let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const crc32 = u => { let c = 0xFFFFFFFF; for (let i = 0; i < u.length; i++) c = CRC[(c ^ u[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+function makeZip(files){ /* files: [{name, data:Uint8Array}] — sem compressão (fotos e tiles já são comprimidos) */
+  const enc = new TextEncoder(), parts = [], cen = []; let off = 0;
+  const d = new Date(), dt = ((d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1)), dd = (((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate());
+  for (const f of files){
+    const nm = enc.encode(f.name), crc = crc32(f.data), sz = f.data.length;
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, 0, true);
+    h.setUint16(10, dt, true); h.setUint16(12, dd, true); h.setUint32(14, crc, true); h.setUint32(18, sz, true); h.setUint32(22, sz, true);
+    h.setUint16(26, nm.length, true); h.setUint16(28, 0, true);
+    parts.push(new Uint8Array(h.buffer), nm, f.data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(10, 0, true);
+    c.setUint16(12, dt, true); c.setUint16(14, dd, true); c.setUint32(16, crc, true); c.setUint32(20, sz, true); c.setUint32(24, sz, true);
+    c.setUint16(28, nm.length, true); c.setUint32(42, off, true);
+    cen.push(new Uint8Array(c.buffer), nm);
+    off += 30 + nm.length + sz;
+  }
+  const cenSize = cen.reduce((s, x) => s + x.length, 0), e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, cenSize, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...cen, new Uint8Array(e.buffer)], {type:'application/zip'});
+}
+const idArq = id => String(id).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').slice(0, 80);
+async function listaPublica(cat, files){
+  const items = await allItems(cat), importada = !!LISTAS[cat], out = [];
+  let nFotos = 0;
+  for (const i of items){
+    const o = {id:i.id, nome:i.nome, cor:i.cor || '', slot:i.slot, tipo:i.tipo, preco:i.preco || '', lojas:[...new Set(i.lojas || [])]};
+    if (i.personagem) o.personagem = i.personagem;
+    if (i.inicial) o.inicial = true;
+    if (i.precosVariante) o.precosVariante = i.precosVariante;
+    if (i.nota && i.mine) o.nota = i.nota;
+    /* texto explicativo de listas importadas (Game8, MeowDB…) não é publicado: vira um aviso genérico */
+    if (i.liberacao) o.liberacao = importada ? 'Liberada no jogo (não é vendida em loja)' : i.liberacao;
+    if (i.foto){
+      const nm = `fotos/${cat}/${idArq(i.id)}.jpg`;
+      files.push({name:nm, data:new Uint8Array(await i.foto.arrayBuffer())}); o.img = nm; nFotos++;
+    } else if (i.img){
+      try { const r = await fetch(i.img); if (r.ok){ files.push({name:i.img, data:new Uint8Array(await r.arrayBuffer())}); o.img = i.img; nFotos++; } } catch(e){}
+    }
+    out.push(o);
+  }
+  return {out, nFotos};
+}
+const README = (nR, nB, fR, fB, quando) => `# Leonida — Mapa Interativo (GTA VI)
+
+Projeto de fã, sem vínculo com a Rockstar Games. Gerado em ${quando}.
+Catálogo: ${nR} peças de roupa (${fR} com foto) e ${nB} itens de beleza (${fB} com foto).
+
+## Publicar pela primeira vez (GitHub Pages, sem instalar nada)
+
+1. Crie um repositório **público** no GitHub, por exemplo \`leonida-mapa\`, sem README.
+2. Na página do repositório vazio, clique em **uploading an existing file**.
+3. Abra a pasta \`parte-1\` do .zip extraído, selecione tudo (Ctrl+A) e arraste para a página. Espere a lista terminar de carregar e clique em **Commit changes**.
+4. Repita com \`parte-2\`, \`parte-3\`… pelo botão **Add file → Upload files**, uma pasta por vez.
+5. **Settings → Pages → Deploy from a branch → main / (root) → Save**.
+6. Em um ou dois minutos o site fica em \`https://SEU_USUARIO.github.io/leonida-mapa/\`.
+
+## Atualizar as fotos e a lista
+
+1. Tire os prints no jogo e salve como \`Nome da peça - Cor.jpg\`.
+2. No mapa do Claude, aba Roupas (ou Beleza): **Importar fotos em lote**.
+3. **Publicar (.zip) → Só o catálogo**.
+4. No GitHub: **Add file → Upload files**, arraste o conteúdo do .zip (ou de cada pasta parte-N) e **Commit changes**. Arquivos com o mesmo nome são substituídos.
+
+## O que cada visitante vê
+
+- O mapa, os locais, as lojas e o catálogo com as fotos publicadas.
+- O progresso (encontrados, Quero/Tenho, pontos e prints próprios) fica no navegador de cada pessoa. Ninguém mexe no do outro.
+
+## Créditos e licenças
+
+- Mapa base e prédios: GTA VI Map Tiles e Landmarks Data, gtadb.org e colaboradores (CC BY 4.0).
+- Locais de jogo e ícones: Open GTA 6 Map, fbritoferreira e colaboradores (CC BY 4.0); glifos Lucide (ISC).
+- Lista de peças inicial: The Games Wiki (CC BY-NC-SA 4.0).
+- Mapa: Leaflet (BSD-2-Clause).
+- Fotos do catálogo: prints tirados pelo autor do site.
+- GTA VI © Rockstar Games / Take-Two Interactive.
+`;
+/* download: dentro do Claude usa a permissão de downloads do artefato; no GitHub Pages, link normal */
+async function baixar(nome, blob){
+  let dl = null;
+  try { if (window.claude && window.claude.use) dl = await window.claude.use('downloads'); } catch(e){}
+  if (dl){
+    try { await dl.save({filename:nome, data:blob}); return 'saved'; }
+    catch(e){ const c = e && e.code;
+      return c === 'declined' ? 'Download cancelado.' : c === 'rate_limited' ? 'Já tem um download esperando confirmação. Tente de novo em instantes.'
+        : c === 'host_unavailable' ? 'Este app não salva arquivos. Abra o mapa num navegador de computador.' : 'Não consegui baixar aqui: ' + ((e && e.message) || c || 'erro'); }
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nome;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); return 'saved';
+}
+$('#pubBtn').onclick = () => {
+  openModal(`<h3>Publicar no GitHub Pages</h3>
+    <p>Gera um .zip pronto para o repositório, com as listas de roupas e beleza e as fotos que você colocou no catálogo.</p>
+    <label class="chk"><input type="radio" name="pm" value="site" checked> <b>Site completo</b> (primeira vez): mapa, ícones, tiles (~30 MB), catálogo e fotos</label>
+    <label class="chk"><input type="radio" name="pm" value="cat"> <b>Só o catálogo</b> (atualizar): listas e fotos</label>
+    <p class="muted" style="font-size:12px">Use só prints seus. Fotos de outros sites não devem ir para o .zip. Textos de listas importadas (como explicações de onde achar ou como liberar) saem como um aviso genérico. Os status “Quero/Tenho” não são publicados.</p>
+    <div id="pOut" class="muted" style="margin-top:8px"></div>
+    <div class="acts"><button class="btn on" id="pGo">Gerar .zip</button><button class="btn" data-close>Fechar</button></div>`);
+  $('#pGo').onclick = async () => {
+    const out = $('#pOut'), go = $('#pGo'), modo = mbox.querySelector('input[name=pm]:checked').value; go.disabled = true;
+    try {
+      const files = [];
+      out.textContent = 'Juntando o catálogo…';
+      const R = await listaPublica('roupas', files), B = await listaPublica('beleza', files);
+      const enc = new TextEncoder();
+      files.push({name:'pecas.json', data:enc.encode(JSON.stringify(R.out))});
+      files.push({name:'beleza.json', data:enc.encode(JSON.stringify(B.out))});
+      if (modo === 'site'){
+        const man = await fetch('files.json').then(r => r.json());
+        for (const [n, f] of man.entries()){
+          if (n % 20 === 0) out.textContent = `Copiando arquivos do site… ${n} de ${man.length}`;
+          const src = f === 'index.html' ? 'index.src.txt' : f;
+          const r = await fetch(src); if (!r.ok) throw new Error('não consegui ler ' + f);
+          if (f === 'index.html'){ /* versão pública: sem os botões de importar, apagar e publicar */
+            const html = (await r.text()).replace('<html lang="pt-BR">', '<html lang="pt-BR" data-publico="1">');
+            if (!html.includes('data-publico="1"')) throw new Error('não consegui preparar o index.html público');
+            files.push({name:f, data:enc.encode(html)});
+          } else files.push({name:f, data:new Uint8Array(await r.arrayBuffer())});
+        }
+      }
+      const quando = new Date().toLocaleString('pt-BR');
+      files.push({name:'README.md', data:enc.encode(README(R.out.length, B.out.length, R.nFotos, B.nFotos, quando))});
+      /* o site do GitHub aceita até 100 arquivos por envio: divide em pastas parte-1, parte-2… de até 95 */
+      const ordem = f => f.name === 'index.html' ? 0 : !f.name.includes('/') ? 1 : f.name.startsWith('pins/') ? 2 : f.name.startsWith('fotos/') ? 3 : 4;
+      files.sort((a, b) => ordem(a) - ordem(b) || a.name.localeCompare(b.name));
+      const nPartes = Math.ceil(files.length / 95);
+      if (nPartes > 1) files.forEach((f, k) => f.name = `parte-${Math.floor(k / 95) + 1}/` + f.name);
+      out.textContent = 'Montando o .zip…';
+      const blob = makeZip(files), nomeZip = modo === 'site' ? 'leonida-mapa-site.zip' : 'leonida-mapa-catalogo.zip';
+      out.textContent = 'Confirme o download do .zip…';
+      const st = await baixar(nomeZip, blob); if (st !== 'saved') { out.textContent = st; go.disabled = false; return; }
+      out.innerHTML = `<b style="color:var(--txt)">Pronto: ${(blob.size / 1e6).toFixed(1).replace('.', ',')} MB.</b> ${R.out.length} peças (${R.nFotos} com foto) e ${B.out.length} itens de beleza (${B.nFotos} com foto). ${nPartes > 1 ? `Dividido em <b>${nPartes} pastas</b> (parte-1 a parte-${nPartes}), uma por envio no GitHub.` : 'Cabe num envio só no GitHub.'}`;
+    } catch(e){ out.textContent = 'Deu erro: ' + e.message; console.error(e); }
+    go.disabled = false;
+  };
+};
+})();
+</script>
+</body>
+</html>
