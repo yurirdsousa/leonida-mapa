@@ -2,7 +2,7 @@
 <html lang="pt-BR" data-publico="1">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Leonida — Mapa Interativo (GTA VI)</title>
 <link rel="stylesheet" href="leaflet.css">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -91,7 +91,8 @@ button{font:inherit;color:inherit;cursor:pointer}
 #panel input,#panel select,#panel textarea,#modal textarea{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--txt);font:inherit;outline:none}
 .toast{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);background:#22c55e;color:#fff;padding:8px 14px;border-radius:999px;font-weight:600;font-size:13px;z-index:950;box-shadow:0 6px 20px #0008}
 #modal{position:fixed;inset:0;background:#000a;display:grid;place-items:center;z-index:2000;padding:16px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
-#modal .box{margin:auto 0}
+#modal .box{margin:auto 0;position:relative}
+.dX{position:absolute;top:8px;right:8px;z-index:2;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:#0d1114e6;color:#fff;font-size:20px;line-height:1;cursor:pointer}
 #map:has(#catalog:not([hidden])) .leaflet-control-zoom{display:none}
 #modal[hidden]{display:none}
 #modal .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;width:min(600px,100%)}
@@ -207,8 +208,9 @@ html[data-publico="1"] .admin{display:none!important}
 @media (max-width:760px){
   #modal{place-items:start center;padding:10px}
   #modal .box{padding:14px}
-  .det img,.det .drop{max-height:34vh;object-fit:contain}
-  .det .drop{min-height:110px;height:auto}
+  #modal{padding-bottom:calc(45vh + env(safe-area-inset-bottom))}
+  .det img,.det .drop{max-height:26vh;object-fit:contain}
+  .det .drop{min-height:90px;height:auto;aspect-ratio:auto;padding:22px 10px}
 }
 /* v3: UX */
 .clu{border-radius:50%;display:grid;place-items:center;background:conic-gradient(#64748b var(--f),var(--c) 0);box-shadow:0 3px 10px #000a;border:2px solid #0b1015;cursor:pointer;transition:transform .12s}
@@ -873,16 +875,18 @@ async function saveOverlay(i, patch){
   delete rec.lojaIds; delete rec.lojaMiss; delete rec.base;
   try { await dbPut(rec); } catch(e){ toast('Não consegui salvar (espaço do navegador?)'); }
 }
+const mapbtnHtml = (i, ls) => `<div class="acts" style="margin-top:12px"><button class="btn on" id="dMap">Ver ${i.cat === 'beleza' ? (ls.length > 1 ? 'os ' + ls.length + ' salões' : 'o salão') : (ls.length > 1 ? 'as ' + ls.length + ' lojas' : 'a loja')} no mapa</button></div>`;
 async function itemDetail(id){
   const i = (await allItems('roupas')).find(x => x.id === id) || (await allItems('beleza')).find(x => x.id === id); if (!i) return;
   const ls = i.lojaIds.map(id => LOC.find(p => p.id === id)).filter(Boolean);
-  openModal(`<div class="det">
-    <div>${temFoto(i) ? `<img src="${fotoSrc(i)}" alt="">` : `<div class="drop" id="dDrop">Clique, solte ou cole (Ctrl+V)<br>o print desta peça</div>`}
+  openModal(`<button class="dX" data-close aria-label="Fechar">×</button><div class="det">
+    <div>${temFoto(i) ? `<img src="${fotoSrc(i)}" alt="">` : `<div class="drop" id="dDrop">${matchMedia('(pointer:coarse)').matches ? 'Toque para adicionar<br>o print desta peça' : 'Clique, solte ou cole (Ctrl+V)<br>o print desta peça'}</div>`}
       ${i.foto ? '<div class="acts" style="margin-top:8px"><button class="btn" id="dPhoto">Trocar foto</button><button class="btn" id="dRm" style="color:#f87171">Remover foto</button></div>'
         : i.img ? '<p class="muted" style="font-size:11px;margin-top:6px">Foto do site publicado.</p><div class="acts" style="margin-top:6px"><button class="btn" id="dPhoto">Usar meu print</button></div>' : ''}</div>
     <div><span class="chip" style="--c:#fb923c">${esc(i.slot)} · ${esc(i.tipo)}</span>
     <h3 style="margin-top:8px">${esc(i.nome)}</h3>
     <div class="muted">${[i.cor, i.preco ? '$' + i.preco : '', i.personagem].filter(Boolean).map(esc).join(' · ')}</div>
+    ${ls.length ? mapbtnHtml(i, ls) : ''}
     ${i.liberacao ? `<p class="muted" style="margin-top:8px">🔓 ${esc(i.liberacao)}</p>` : ''}
     ${i.nota ? `<p class="muted" style="margin-top:6px">${esc(i.nota)}</p>` : ''}
     ${i.precosVariante ? `<p class="muted" style="margin-top:6px">💲 ${esc(i.precosVariante)}</p>` : ''}
@@ -895,7 +899,6 @@ async function itemDetail(id){
     ${!ls.length && !i.inicial && !i.liberacao ? `<p class="muted" style="margin-top:8px">${i.cat === 'beleza' ? 'Ainda sem salão ligado no mapa.' : 'Loja ainda não registrada.'} Viu ${i.cat === 'beleza' ? 'esse serviço em algum salão' : 'essa peça em alguma loja'}?</p>` : ''}
     <div class="addstore"><input id="aLoja" list="dlAdd" placeholder="${i.cat === 'beleza' ? 'Eu vi neste salão…' : 'Eu vi nesta loja…'}"><datalist id="dlAdd">${[...new Set((i.cat === 'beleza' ? SALOES : LOJAS).map(l => l.nome))].sort().map(n => `<option value="${esc(n)}">`).join('')}</datalist><button class="btn" id="aGo">Adicionar</button></div>
     ${(i.lojasExtra || []).length ? `<p class="muted" style="font-size:11px;margin-top:4px">Adicionadas por você: ${i.lojasExtra.map(esc).join(', ')} · <a href="#" id="aClr" style="color:#9fc6dd">desfazer</a></p>` : ''}
-    <div class="acts" style="margin-top:12px">${ls.length ? `<button class="btn on" id="dMap">Ver ${i.cat === 'beleza' ? (ls.length > 1 ? 'os ' + ls.length + ' salões' : 'o salão') : (ls.length > 1 ? 'as ' + ls.length + ' lojas' : 'a loja')} no mapa</button>` : ''}</div>
     <div class="acts">${i.mine ? '<button class="btn" id="dEdit">Editar</button><button class="btn" id="dDel" style="color:#f87171">Excluir</button>' : ''}<button class="btn" data-close>Fechar</button></div>
     <p class="muted" style="font-size:11px;margin-top:10px">${i.mine ? 'Adicionada por você.' : i.cat === 'beleza' ? 'Dados: NiaMeowDB (meowdb.com/gta6/barbers).' : LISTAS.roupas ? 'Dados da sua lista importada.' : 'Dados da peça: The Games Wiki (CC BY-NC-SA 4.0).'}</p>
     </div></div>`);
