@@ -1,23 +1,20 @@
 # Leonida — Mapa Interativo (GTA VI)
 
-Projeto de fã, sem vínculo com a Rockstar Games. Gerado em 24/11/2026, 17:56:22.
+Projeto de fã, sem vínculo com a Rockstar Games. Gerado em 24/11/2026, 18:07:28.
 Catálogo: 1622 peças de roupa (1622 com foto) e 178 itens de beleza (178 com foto).
 
-## Publicar pela primeira vez (GitHub Pages, sem instalar nada)
+## Atualizar com o GitHub Desktop
 
-1. Crie um repositório **público** no GitHub, por exemplo `leonida-mapa`, sem README.
-2. Na página do repositório vazio, clique em **uploading an existing file**.
-3. Abra a pasta `parte-1` do .zip extraído, selecione tudo (Ctrl+A) e arraste para a página. Espere a lista terminar de carregar e clique em **Commit changes**.
-4. Repita com `parte-2`, `parte-3`… pelo botão **Add file → Upload files**, uma pasta por vez.
-5. **Settings → Pages → Deploy from a branch → main / (root) → Save**.
-6. Em um ou dois minutos o site fica em `https://SEU_USUARIO.github.io/leonida-mapa/`.
+1. No GitHub Desktop, clique em **Fetch origin** (e em **Pull origin**, se aparecer).
+2. **Repository → Show in Explorer** abre a pasta do repositório.
+3. Se for "Só o catálogo": apague a pasta `fotos` do repositório (o .zip sempre traz todas as fotos).
+4. Abra o .zip, selecione tudo (Ctrl+A), copie e cole na pasta do repositório. Escolha **Substituir os arquivos no destino**.
+5. No GitHub Desktop: escreva o **Summary**, clique em **Commit to main** e depois em **Push origin**.
+6. Em um ou dois minutos o site atualiza (Ctrl+F5 para recarregar sem cache).
 
-## Atualizar as fotos e a lista
+## Pelo site do GitHub (sem programa)
 
-1. Tire os prints no jogo e salve como `Nome da peça - Cor.jpg`.
-2. No mapa do Claude, aba Roupas (ou Beleza): **Importar fotos em lote**.
-3. **Publicar (.zip) → Só o catálogo**.
-4. No GitHub: **Add file → Upload files**, arraste o conteúdo do .zip (ou de cada pasta parte-N) e **Commit changes**. Arquivos com o mesmo nome são substituídos.
+Marque "Dividir em pastas parte-N" ao gerar o .zip e envie o conteúdo de cada pasta por **Add file → Upload files**, uma por vez.
 
 ## O que cada visitante vê
 
