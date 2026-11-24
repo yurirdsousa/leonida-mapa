@@ -789,7 +789,21 @@ const dbDel = (id, s = 'pecas') => DB ? tx(s, 'readwrite', st => st.delete(id)) 
 const temFoto = i => !!(i.foto || i.img);
 const fotoSrc = i => i.foto ? urlOf(i) : (i.img || '');
 function urlOf(i){ if (!i.foto) return ''; if (!urls[i.id] || urls[i.id].b !== i.foto) urls[i.id] = {b:i.foto, u:URL.createObjectURL(i.foto)}; return urls[i.id].u; }
-function shrink(file){ return new Promise((res, rej) => {
+/* reduz a imagem para no máx. 1100 px em JPG; decodifica fora da tela principal quando o navegador permite */
+async function shrink(file){
+  if (window.createImageBitmap && window.OffscreenCanvas){
+    try {
+      const full = await createImageBitmap(file), k = Math.min(1, 1100 / Math.max(full.width, full.height));
+      const w = Math.max(1, Math.round(full.width * k)), h = Math.max(1, Math.round(full.height * k));
+      const bmp = k < 1 ? await createImageBitmap(full, {resizeWidth:w, resizeHeight:h, resizeQuality:'high'}) : full;
+      const c = new OffscreenCanvas(w, h); c.getContext('2d').drawImage(bmp, 0, 0);
+      full.close(); if (bmp !== full) bmp.close();
+      return await c.convertToBlob({type:'image/jpeg', quality:.86});
+    } catch(e){ /* cai no método antigo */ }
+  }
+  return shrinkOld(file);
+}
+function shrinkOld(file){ return new Promise((res, rej) => {
   const img = new Image(); img.onload = () => {
     const k = Math.min(1, 1100 / Math.max(img.width, img.height)), c = document.createElement('canvas');
     c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
@@ -872,7 +886,7 @@ $('#addItem').onclick = () => itemForm();
 function pickFile(accept, multiple, cb){ const fi = document.createElement('input'); fi.type = 'file'; fi.accept = accept; fi.multiple = !!multiple; fi.onchange = () => cb(fi.files); fi.click(); }
 async function saveOverlay(i, patch){
   const rec = i.mine ? {...i, ...patch} : {id:i.id, foto:i.foto, status:i.status, criado:i.criado || Date.now(), lojasExtra:i.lojasExtra || [], ...patch};
-  delete rec.lojaIds; delete rec.lojaMiss; delete rec.base;
+  delete rec.lojaIds; delete rec.lojaMiss; delete rec.base; delete rec._tomada;
   try { await dbPut(rec); } catch(e){ toast('Não consegui salvar (espaço do navegador?)'); }
 }
 const mapbtnHtml = (i, ls) => `<div class="acts" style="margin-top:12px"><button class="btn on" id="dMap">Ver ${i.cat === 'beleza' ? (ls.length > 1 ? 'os ' + ls.length + ' salões' : 'o salão') : (ls.length > 1 ? 'as ' + ls.length + ' lojas' : 'a loja')} no mapa</button></div>`;
@@ -1020,17 +1034,32 @@ $('#bulkBtn').onclick = () => {
     files = [...files].filter(f => f.type.startsWith('image/')); if (!files.length) return toast('Nenhuma imagem');
     const items = await allItems(CAT), byFull = {}, byName = {}, byFile = {};
     items.forEach(i => { if (i.arquivo) byFile[i.arquivo.toLowerCase()] = i; byFull[keyOf(i.nome + ' ' + (i.cor || ''))] = byFull[keyOf(i.nome + ' ' + (i.cor || ''))] || i; const k = keyOf(i.nome); (byName[k] = byName[k] || []).push(i); });
-    const out = $('#bOut'); let ok = 0; const novos = [];
-    for (const [n, f] of files.entries()){
-      out.textContent = `Processando ${n + 1} de ${files.length}…`;
+    const out = $('#bOut'); let ok = 0, feitos = 0; const novos = [], t0 = Date.now();
+    /* 1) casa cada arquivo com uma peça (rápido, em ordem) */
+    const tarefas = files.map((f, n) => {
       const base = f.name.replace(/\.[^.]+$/, ''), k = keyOf(base);
-      let it = byFile[f.name.toLowerCase()] || byFull[k] || (byName[k] && (byName[k].find(i => !i.foto) || byName[k][0]));
-      let blob; try { blob = await shrink(f); } catch(e){ continue; }
-      if (it){ await saveOverlay(it, {foto:blob, criado:Date.now()}); it.foto = blob; ok++; }
-      else { const [nome, ...resto] = base.split(' - '); const tipo = tipoPT(nome);
-        await dbPut({id:'p-' + Date.now().toString(36) + n, mine:true, cat:CAT, criado:Date.now(), status:'', foto:blob, nome:nome.trim(), cor:resto.join(' - ').trim(), lojas:[], tipo, slot:SLOT_OF(tipo), preco:'', nota:'Importada em lote'});
-        novos.push(base); }
-    }
+      const it = byFile[f.name.toLowerCase()] || byFull[k] || (byName[k] && (byName[k].find(i => !i.foto && !i._tomada) || byName[k][0]));
+      if (it) it._tomada = true;
+      return {f, n, base, it};
+    });
+    /* 2) reduz e salva 4 de cada vez */
+    const fila = tarefas.slice();
+    const trabalhador = async () => {
+      for (let t; (t = fila.shift()); ){
+        let blob; try { blob = await shrink(t.f); } catch(e){ blob = null; }
+        if (blob){
+          if (t.it){ await saveOverlay(t.it, {foto:blob, criado:Date.now()}); t.it.foto = blob; ok++; }
+          else { const [nome, ...resto] = t.base.split(' - '); const tipo = tipoPT(nome);
+            await dbPut({id:'p-' + Date.now().toString(36) + t.n, mine:true, cat:CAT, criado:Date.now(), status:'', foto:blob, nome:nome.trim(), cor:resto.join(' - ').trim(), lojas:[], tipo, slot:SLOT_OF(tipo), preco:'', nota:'Importada em lote'});
+            novos.push(t.base); }
+        }
+        feitos++;
+        const seg = (Date.now() - t0) / 1000, resta = Math.round(seg / feitos * (files.length - feitos));
+        out.textContent = `Processando ${feitos} de ${files.length}…` + (feitos >= 3 && resta > 5 ? ` (faltam uns ${resta >= 90 ? Math.round(resta / 60) + ' min' : resta + ' s'})` : '');
+      }
+    };
+    out.textContent = `Processando 0 de ${files.length}…`;
+    await Promise.all([trabalhador(), trabalhador(), trabalhador(), trabalhador()]);
     out.innerHTML = `<b style="color:var(--txt)">${ok} foto${ok === 1 ? '' : 's'} ligada${ok === 1 ? '' : 's'} a peças da lista.</b>` + (novos.length ? `<br>${novos.length} viraram peças novas:<br>${novos.slice(0, 60).map(esc).join('<br>')}` : '');
     renderCatalog();
   };
