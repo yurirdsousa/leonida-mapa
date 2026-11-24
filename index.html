@@ -90,7 +90,9 @@ button{font:inherit;color:inherit;cursor:pointer}
 #panel label{display:block;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin:10px 0 4px}
 #panel input,#panel select,#panel textarea,#modal textarea{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--txt);font:inherit;outline:none}
 .toast{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);background:#22c55e;color:#fff;padding:8px 14px;border-radius:999px;font-weight:600;font-size:13px;z-index:950;box-shadow:0 6px 20px #0008}
-#modal{position:fixed;inset:0;background:#000a;display:grid;place-items:center;z-index:2000;padding:16px}
+#modal{position:fixed;inset:0;background:#000a;display:grid;place-items:center;z-index:2000;padding:16px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+#modal .box{margin:auto 0}
+#map:has(#catalog:not([hidden])) .leaflet-control-zoom{display:none}
 #modal[hidden]{display:none}
 #modal .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;width:min(600px,100%)}
 #modal h3{margin:0 0 6px}
@@ -201,6 +203,13 @@ button{font:inherit;color:inherit;cursor:pointer}
 .src{font-size:11px;color:var(--mut);margin-top:10px}
 /* site publicado: ferramentas de administração não aparecem */
 html[data-publico="1"] .admin{display:none!important}
+/* celular: janela da peça rola e a foto não ocupa a tela toda */
+@media (max-width:760px){
+  #modal{place-items:start center;padding:10px}
+  #modal .box{padding:14px}
+  .det img,.det .drop{max-height:34vh;object-fit:contain}
+  .det .drop{min-height:110px;height:auto}
+}
 /* v3: UX */
 .clu{border-radius:50%;display:grid;place-items:center;background:conic-gradient(#64748b var(--f),var(--c) 0);box-shadow:0 3px 10px #000a;border:2px solid #0b1015;cursor:pointer;transition:transform .12s}
 .clu span{display:grid;place-items:center;width:calc(100% - 8px);height:calc(100% - 8px);border-radius:50%;background:#0d1114e6;color:#fff;font-weight:800;font-size:12px;font-variant-numeric:tabular-nums}

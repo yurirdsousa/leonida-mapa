@@ -1,6 +1,6 @@
 # Leonida — Mapa Interativo (GTA VI)
 
-Projeto de fã, sem vínculo com a Rockstar Games. Gerado em 24/11/2026, 08:37:59.
+Projeto de fã, sem vínculo com a Rockstar Games. Gerado em 24/11/2026, 09:38:47.
 Catálogo: 1273 peças de roupa (1273 com foto) e 178 itens de beleza (178 com foto).
 
 ## Publicar pela primeira vez (GitHub Pages, sem instalar nada)
